@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import httpx
 
 from app import config, logs
@@ -10,7 +12,7 @@ def test_send_log_posts_payload_and_prints(capsys, monkeypatch):
 
     def mock_send(request: httpx.Request) -> httpx.Response:
         nonlocal sent_payload
-        sent_payload = request.json()
+        sent_payload = json.loads(request.content.decode())
         return httpx.Response(200, json={"ok": True})
 
     transport = httpx.MockTransport(mock_send)
