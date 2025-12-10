@@ -20,10 +20,16 @@ def get_ssadagu_service() -> SsadaguService:
 )
 async def search_ssadagu(
     keyword: str = Query(..., description="검색할 키워드"),
+    limit: int = Query(
+        20,
+        ge=1,
+        le=100,
+        description="가져올 최대 상품 수 (기본 20)",
+    ),
     service: SsadaguService = Depends(get_ssadagu_service),
 ) -> SsadaguSearchResponse:
     """Search ssadagu by keyword and return list with detail specs."""
-    products = await service.search(keyword)
+    products = await service.search(keyword, max_products=limit)
     if not products:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,

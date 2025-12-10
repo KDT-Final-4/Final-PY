@@ -24,6 +24,25 @@ class EmptySsadaguService(SsadaguService):
         return []
 
 
+class LimitCheckSsadaguService(SsadaguService):
+    def __init__(self):
+        self.received_limit = None
+
+    async def search(self, keyword: str, **kwargs):
+        self.received_limit = kwargs.get("max_products")
+        max_items = self.received_limit or 1
+        return [
+            SsadaguProduct(
+                title=f"{keyword}-{idx}",
+                price=1.0 * idx,
+                product_link=f"https://ssadagu.kr/product/{idx}",
+                thumbnail_link="https://ssadagu.kr/images/thumb.jpg",
+                detail_specs={},
+            )
+            for idx in range(max_items)
+        ]
+
+
 def test_ssadagu_search_returns_expected_format():
     app.dependency_overrides[get_ssadagu_service] = lambda: DummySsadaguService()
     client = TestClient(app)
@@ -51,4 +70,18 @@ def test_ssadagu_search_returns_502_on_empty():
     resp = client.get("/api/ssadagu/search", params={"keyword": "phone"})
 
     assert resp.status_code == 502
+    app.dependency_overrides.clear()
+
+
+def test_ssadagu_search_respects_limit_param():
+    svc = LimitCheckSsadaguService()
+    app.dependency_overrides[get_ssadagu_service] = lambda: svc
+    client = TestClient(app)
+
+    resp = client.get("/api/ssadagu/search", params={"keyword": "phone", "limit": 3})
+
+    assert resp.status_code == 200
+    data = resp.json()["싸다구"]
+    assert len(data) == 3
+    assert svc.received_limit == 3
     app.dependency_overrides.clear()
