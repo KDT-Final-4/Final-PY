@@ -1,0 +1,25 @@
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Bytecode and caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.cache/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Coverage / logs
+.coverage
+*.log
+
+# Local data
+*.sqlite3
+
+# Docker artifacts
+*.pid
