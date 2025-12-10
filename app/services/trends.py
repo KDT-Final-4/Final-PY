@@ -8,8 +8,9 @@ from contextlib import asynccontextmanager
 from typing import Optional, Set
 
 from playwright.async_api import Page, async_playwright
+from pydantic import ValidationError
 
-from app.schemas.trends import GoogleTrendItem
+from app.schemas.trends import GoogleCrawlerResponse, GoogleTrendItem
 
 logger = logging.getLogger(__name__)
 
@@ -186,3 +187,30 @@ class GoogleTrendsService:
             )
             for keyword in keywords
         ]
+
+    def extract_keywords_from_response(
+        self, crawler_response: GoogleCrawlerResponse | dict | None
+    ) -> list[str]:
+        """Google Crawler 응답에서 keyword만 추출한다."""
+        if crawler_response is None:
+            return []
+
+        try:
+            response = (
+                crawler_response
+                if isinstance(crawler_response, GoogleCrawlerResponse)
+                else GoogleCrawlerResponse.model_validate(crawler_response)
+            )
+        except ValidationError:
+            logger.exception("GoogleCrawlerResponse 파싱 실패")
+            return []
+
+        keywords: list[str] = []
+        seen: set[str] = set()
+        for item in response.googleCrawler:
+            keyword = (item.keyword or "").strip()
+            if not keyword or keyword in seen:
+                continue
+            seen.add(keyword)
+            keywords.append(keyword)
+        return keywords

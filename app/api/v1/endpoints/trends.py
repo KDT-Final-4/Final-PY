@@ -1,6 +1,8 @@
 """Trending keyword endpoints."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from typing import Any, Dict
+
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 
 from app.schemas.trends import GoogleCrawlerResponse
 from app.services.trends import GoogleTrendsService
@@ -31,3 +33,17 @@ async def list_trending_keywords(
             detail="구글 트렌드 키워드를 가져오지 못했습니다.",
         )
     return GoogleCrawlerResponse(googleCrawler=items)
+
+
+@router.post(
+    "/extract",
+    response_model=list[str],
+    summary="/api/trends 응답에서 키워드만 추출",
+    description="/api/trends 결과(JSON)를 받아 keyword 리스트만 반환합니다.",
+)
+async def extract_keywords(
+    payload: Dict[str, Any] = Body(..., description="/api/trends 응답 JSON"),
+    service: GoogleTrendsService = Depends(get_trends_service),
+) -> list[str]:
+    """Return only keywords extracted from GoogleCrawlerResponse payload."""
+    return service.extract_keywords_from_response(payload)
