@@ -1,6 +1,11 @@
 from fastapi import FastAPI
 
+from app.api import api_router
+
 app = FastAPI(title="Final PY API", version="0.1.0")
+
+# Register API routers early so versioned endpoints are available.
+app.include_router(api_router)
 
 
 @app.get("/", summary="Root endpoint")
