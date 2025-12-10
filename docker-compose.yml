@@ -8,3 +8,13 @@ services:
       - "8000:8000"
     volumes:
       - .:/app
+    environment:
+      - PYTHONPATH=/app
+
+  test:
+    build: .
+    command: pytest
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONPATH=/app
