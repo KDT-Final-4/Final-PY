@@ -7,6 +7,8 @@ import os
 from dataclasses import dataclass
 from typing import Optional
 from urllib.parse import urlparse
+import uuid
+from pathlib import Path
 
 from playwright.async_api import async_playwright
 
@@ -58,9 +60,32 @@ async def _open_editor(browser, blog_id: str, session_file: str):
     print("[Naver] 글쓰기 페이지 이동")
     await page.goto(f"https://blog.naver.com/{blog_id}?Redirect=Write&", timeout=30000)
     print(f"[Naver] 현재 페이지 URL: {page.url}")
+    # 디버그: 현재 페이지 HTML 저장
+    try:
+        os.makedirs("/app/tmp/naver_dump", exist_ok=True)
+        html_path = f"/app/tmp/naver_dump/editor_page.html"
+        await page.wait_for_timeout(1000)
+        html = await page.content()
+        with open(html_path, "w", encoding="utf-8") as f:
+            f.write(html)
+        print(f"[Naver] 에디터 페이지 HTML 저장: {html_path}")
+    except Exception as exc:
+        print(f"[Naver] 에디터 HTML 저장 실패: {exc}")
     await page.wait_for_selector("iframe[name='mainFrame']")
     frame = page.frame(name="mainFrame")
     return frame, page
+
+
+async def _screenshot(page, label: str) -> None:
+    """디버그용 스크린샷 저장."""
+    try:
+        base = Path("/app/tmp/naver_shots")
+        base.mkdir(parents=True, exist_ok=True)
+        filename = base / f"{label}_{uuid.uuid4().hex[:8]}.png"
+        await page.screenshot(path=filename, full_page=True)
+        print(f"[Naver] 스크린샷 저장: {filename}")
+    except Exception as exc:
+        print(f"[Naver] 스크린샷 저장 실패: {exc}")
 
 
 def _find_editor_frame(frame):
@@ -77,8 +102,19 @@ def _find_editor_frame(frame):
     return frame
 
 
+def _collect_frames(root_frame):
+    """루트 프레임 포함 모든 자식 프레임을 리스트로 반환."""
+    frames = []
+    queue = [root_frame]
+    while queue:
+        fr = queue.pop(0)
+        frames.append(fr)
+        queue.extend(fr.child_frames)
+    return frames
+
+
 async def _fill_title(frame, title: str) -> bool:
-    frame = _find_editor_frame(frame)
+    frames = _collect_frames(frame)
     selectors = [
         "p.se-text-paragraph span.se-placeholder",
         "p.se_textarea span.se_placeholder",
@@ -88,29 +124,32 @@ async def _fill_title(frame, title: str) -> bool:
         "div.write_header input[type='text']",
         "[contenteditable='true'][role='textbox']",
     ]
-    for sel in selectors:
-        try:
-            print(f"[Naver] 제목 입력 시도: {sel}")
-            await frame.wait_for_selector(sel, timeout=3000)
-            await frame.click(sel, force=True)
-            with open("/tmp/naver_title_debug.txt", "w") as f:
-                f.write(title)
+    for fr in frames:
+        for sel in selectors:
             try:
-                await frame.fill(sel, "")  # 혹시 입력 가능하면 비우기
+                print(f"[Naver] 제목 입력 시도: {sel} @frame {fr.name} {fr.url}")
+                await fr.wait_for_selector(sel, timeout=2000)
+                await fr.click(sel, force=True)
+                try:
+                    await fr.fill(sel, "")  # 혹시 입력 가능하면 비우기
+                except Exception:
+                    pass
+                await fr.type(sel, title)
+                return True
             except Exception:
-                pass
-            await frame.type(sel, title)
-            return True
-        except Exception:
-            continue
+                continue
     # JS로 직접 입력 시도 (마지막 수단)
     try:
         print("[Naver] 제목 입력 시도: JS fallback")
-        await frame.evaluate(
-            "(text) => { const el = document.querySelector('[contenteditable=\"true\"],[role=\"textbox\"]'); if (el) { el.innerText = text; el.textContent = text; } }",
-            title,
-        )
-        return True
+        for fr in frames:
+            try:
+                await fr.evaluate(
+                    "(text) => { const el = document.querySelector('[contenteditable=\"true\"],[role=\"textbox\"], input[type=\"text\"]'); if (el) { el.focus(); el.innerText = text; el.textContent = text; if(el.value!==undefined) el.value=text; } }",
+                    title,
+                )
+                return True
+            except Exception:
+                continue
     except Exception:
         pass
     print("[Naver] 제목 입력 실패 (모든 셀렉터 시도)")
@@ -118,7 +157,7 @@ async def _fill_title(frame, title: str) -> bool:
 
 
 async def _fill_content(frame, content: str) -> bool:
-    frame = _find_editor_frame(frame)
+    frames = _collect_frames(frame)
     selectors = [
         "div.se-module-text p.se-text-paragraph span.se-placeholder",
         "div.se_component_wrap p.se_textarea span.se_placeholder",
@@ -130,24 +169,32 @@ async def _fill_content(frame, content: str) -> bool:
         "div.se_component_wrap div[contenteditable='true']",
         "[contenteditable='true'][data-placeholder]",
     ]
-    for sel in selectors:
-        try:
-            print(f"[Naver] 본문 입력 시도: {sel}")
-            await frame.wait_for_selector(sel, timeout=4000)
-            await frame.click(sel, force=True)
-            await frame.fill(sel, "")  # 비우기 시도
-            await frame.type(sel, content)
-            return True
-        except Exception:
-            continue
+    for fr in frames:
+        for sel in selectors:
+            try:
+                print(f"[Naver] 본문 입력 시도: {sel} @frame {fr.name} {fr.url}")
+                await fr.wait_for_selector(sel, timeout=2500)
+                await fr.click(sel, force=True)
+                try:
+                    await fr.fill(sel, "")  # 비우기 시도
+                except Exception:
+                    pass
+                await fr.type(sel, content)
+                return True
+            except Exception:
+                continue
     # JS로 직접 입력 시도 (마지막 수단)
     try:
         print("[Naver] 본문 입력 시도: JS fallback")
-        await frame.evaluate(
-            "(text) => { const el = document.querySelector('[contenteditable=\"true\"]'); if (el) { el.innerText = text; el.textContent = text; } }",
-            content,
-        )
-        return True
+        for fr in frames:
+            try:
+                await fr.evaluate(
+                    "(text) => { const el = document.querySelector('[contenteditable=\"true\"]'); if (el) { el.focus(); el.innerText = text; el.textContent = text; } }",
+                    content,
+                )
+                return True
+            except Exception:
+                continue
     except Exception:
         pass
     print("[Naver] 본문 입력 실패 (모든 셀렉터 시도)")
@@ -155,16 +202,23 @@ async def _fill_content(frame, content: str) -> bool:
 
 
 async def _publish(frame) -> bool:
-    try:
-        print("[Naver] 발행 버튼 클릭(1단계)")
-        await frame.wait_for_selector("button.publish_btn__m9KHH", timeout=5000)
-        await frame.click("button.publish_btn__m9KHH")
-        print("[Naver] 발행 버튼 클릭(2단계)")
-        await frame.wait_for_selector("button[data-testid='seOnePublishBtn']", timeout=5000)
-        await frame.click("button[data-testid='seOnePublishBtn']")
-        return True
-    except Exception:
-        return False
+    frames = _collect_frames(frame)
+    selectors = [
+        "button.publish_btn__m9KHH",
+        "button[data-testid='seOnePublishBtn']",
+        "button:has-text('발행')",
+    ]
+    clicked = False
+    for fr in frames:
+        for sel in selectors:
+            try:
+                print(f"[Naver] 발행 버튼 클릭 시도: {sel} @frame {fr.name} {fr.url}")
+                await fr.wait_for_selector(sel, timeout=2500)
+                await fr.click(sel, force=True)
+                clicked = True
+            except Exception:
+                continue
+    return clicked
 
 
 async def _close_existing_draft(frame) -> None:
@@ -265,14 +319,20 @@ class NaverBlogService:
                 await _confirm_trusted_device(page)
                 await _close_existing_draft(frame)
                 await _close_help_panel(frame)
+                await _screenshot(page, "after_open")
 
                 if not await _fill_title(frame, title):
+                    await _screenshot(page, "title_failed")
                     return NaverBlogPublishResult(False, "제목 입력 실패")
+                await _screenshot(page, "after_title")
 
                 if not await _fill_content(frame, content):
+                    await _screenshot(page, "content_failed")
                     return NaverBlogPublishResult(False, "본문 입력 실패")
+                await _screenshot(page, "after_content")
 
                 if not await _publish(frame):
+                    await _screenshot(page, "publish_failed")
                     return NaverBlogPublishResult(False, "발행 버튼 클릭 실패")
 
                 # 발행 후 URL을 베스트에포트로 획득
@@ -286,6 +346,7 @@ class NaverBlogService:
                         final_url = page.url
                     except Exception:
                         pass
+                await _screenshot(page, "after_publish")
 
                 return NaverBlogPublishResult(True, "게시물 발행 완료", final_url)
 
