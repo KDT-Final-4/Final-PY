@@ -18,6 +18,7 @@ load_dotenv()
 LOG_ENDPOINT_KEY = "LOG_ENDPOINT"
 LOG_SOURCE_KEY = "LOG_SOURCE"
 LOG_TIMEOUT_KEY = "LOG_TIMEOUT"
+OPENAI_API_KEY_KEY = "OPENAI_API_KEY"
 
 
 def _get_required_str(name: str) -> str:
@@ -71,10 +72,17 @@ def get_log_timeout(override: Optional[float] = None) -> float:
     return _get_float_env(LOG_TIMEOUT_KEY, 5.0)
 
 
+# ---- OpenAI 설정 ----
+def get_openai_api_key(override: Optional[str] = None) -> str:
+    """OpenAI API Key 조회 (필수)."""
+    return override or _get_required_str(OPENAI_API_KEY_KEY)
+
+
 __all__ = [
     "LOG_ENDPOINT_KEY",
     "LOG_SOURCE_KEY",
     "LOG_TIMEOUT_KEY",
+    "OPENAI_API_KEY_KEY",
     "get_log_endpoint",
     "get_log_source",
     "get_log_timeout",
