@@ -19,3 +19,24 @@ class ContentDraft(BaseModel):
 
     platform: str = Field(..., description="대상 플랫폼")
     content: str = Field(..., description="플랫폼 규칙에 맞게 생성된 본문")
+
+
+class NaverBlogPublishRequest(BaseModel):
+    """네이버 블로그 업로드 요청."""
+
+    login_id: str = Field(..., description="네이버 로그인 아이디")
+    login_pw: str = Field(..., description="네이버 로그인 비밀번호")
+    title: str = Field(..., description="블로그 글 제목")
+    content: str = Field(..., description="블로그 글 내용(텍스트)")
+    blog_id: str | None = Field(
+        None,
+        description="블로그 ID (없으면 login_id 사용)",
+    )
+
+
+class NaverBlogPublishResponse(BaseModel):
+    """네이버 블로그 업로드 결과."""
+
+    success: bool = Field(..., description="업로드 성공 여부")
+    message: str = Field(..., description="결과 메시지")
+    url: str | None = Field(None, description="발행된 글 URL(성공 시)")
