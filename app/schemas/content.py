@@ -11,7 +11,6 @@ class ContentRequest(BaseModel):
     title: str = Field(..., description="게시글 제목")
     body: str = Field(..., description="원본 본문 또는 요약")
     ssadagu_product: ProductDetail | None = Field(None, description="싸다구 상품 정보")
-    coupang_product: ProductDetail | None = Field(None, description="쿠팡 상품 정보")
     platform: str = Field(..., description="생성 대상 플랫폼 (예: naver_blog, x)")
 
 
