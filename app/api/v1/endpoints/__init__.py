@@ -1,5 +1,27 @@
 """Endpoint modules for API v1."""
 
-from app.api.v1.endpoints import content, keywords, llm, promo, publish, relevance, ssadagu, trends, naver_blog
+from app.api.v1.endpoints import (
+    content,
+    keywords,
+    llm,
+    promo,
+    publish,
+    relevance,
+    ssadagu,
+    trends,
+    naver_blog,
+    x_post,
+)
 
-__all__ = ["content", "keywords", "llm", "promo", "publish", "relevance", "ssadagu", "trends", "naver_blog"]
+__all__ = [
+    "content",
+    "keywords",
+    "llm",
+    "promo",
+    "publish",
+    "relevance",
+    "ssadagu",
+    "trends",
+    "naver_blog",
+    "x_post",
+]

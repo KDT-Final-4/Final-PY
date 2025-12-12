@@ -6,6 +6,7 @@ from app.services.llm import LLMService
 from app.services.publish import PublisherService
 from app.services.promo import PromoService
 from app.services.relevance import RelevanceService
+from app.services.x_post import XPostService
 from app.services.ssadagu import SsadaguService
 from app.services.trends import GoogleTrendsService
 
@@ -15,6 +16,7 @@ __all__ = [
     "LLMService",
     "PromoService",
     "RelevanceService",
+    "XPostService",
     "PublisherService",
     "SsadaguService",
     "GoogleTrendsService",

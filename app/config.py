@@ -19,6 +19,10 @@ LOG_ENDPOINT_KEY = "LOG_ENDPOINT"
 LOG_SOURCE_KEY = "LOG_SOURCE"
 LOG_TIMEOUT_KEY = "LOG_TIMEOUT"
 OPENAI_API_KEY_KEY = "OPENAI_API_KEY"
+X_CONSUMER_KEY = "X_CONSUMER_KEY"
+X_CONSUMER_SECRET = "X_CONSUMER_SECRET"
+X_ACCESS_TOKEN = "X_ACCESS_TOKEN"
+X_ACCESS_TOKEN_SECRET = "X_ACCESS_TOKEN_SECRET"
 
 
 def _get_required_str(name: str) -> str:
@@ -78,12 +82,38 @@ def get_openai_api_key(override: Optional[str] = None) -> str:
     return override or _get_required_str(OPENAI_API_KEY_KEY)
 
 
+# ---- X(OAuth1) 설정 ----
+def get_x_consumer_key(override: Optional[str] = None) -> str:
+    return override or _get_required_str(X_CONSUMER_KEY)
+
+
+def get_x_consumer_secret(override: Optional[str] = None) -> str:
+    return override or _get_required_str(X_CONSUMER_SECRET)
+
+
+def get_x_access_token(override: Optional[str] = None) -> str:
+    return override or _get_required_str(X_ACCESS_TOKEN)
+
+
+def get_x_access_token_secret(override: Optional[str] = None) -> str:
+    return override or _get_required_str(X_ACCESS_TOKEN_SECRET)
+
+
 __all__ = [
     "LOG_ENDPOINT_KEY",
     "LOG_SOURCE_KEY",
     "LOG_TIMEOUT_KEY",
     "OPENAI_API_KEY_KEY",
+    "X_CONSUMER_KEY",
+    "X_CONSUMER_SECRET",
+    "X_ACCESS_TOKEN",
+    "X_ACCESS_TOKEN_SECRET",
     "get_log_endpoint",
     "get_log_source",
     "get_log_timeout",
+    "get_openai_api_key",
+    "get_x_consumer_key",
+    "get_x_consumer_secret",
+    "get_x_access_token",
+    "get_x_access_token_secret",
 ]

@@ -12,6 +12,7 @@ from app.api.v1.endpoints import (
     ssadagu,
     trends,
     naver_blog,
+    x_post,
 )
 
 router = APIRouter()
@@ -25,5 +26,6 @@ router.include_router(keywords.router)
 router.include_router(content.router)
 router.include_router(publish.router)
 router.include_router(naver_blog.router)
+router.include_router(x_post.router)
 
 __all__ = ["router"]
