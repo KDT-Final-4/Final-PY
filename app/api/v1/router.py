@@ -15,6 +15,7 @@ from app.api.v1.endpoints import (
     naver_blog,
     x_post,
     upload,
+    write,
 )
 
 router = APIRouter()
@@ -31,5 +32,6 @@ router.include_router(naver_blog.router)
 router.include_router(x_post.router)
 router.include_router(crawler.router)
 router.include_router(upload.router)
+router.include_router(write.router)
 
 __all__ = ["router"]

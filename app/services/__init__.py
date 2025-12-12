@@ -9,6 +9,7 @@ from app.services.relevance import RelevanceService
 from app.services.x_post import XPostService
 from app.services.ssadagu import SsadaguService
 from app.services.trends import GoogleTrendsService
+from app.services.write import WriteService
 
 __all__ = [
     "ContentService",
@@ -20,4 +21,5 @@ __all__ = [
     "PublisherService",
     "SsadaguService",
     "GoogleTrendsService",
+    "WriteService",
 ]

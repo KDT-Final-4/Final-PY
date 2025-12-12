@@ -13,6 +13,7 @@ from app.api.v1.endpoints import (
     naver_blog,
     x_post,
     upload,
+    write,
 )
 
 __all__ = [
@@ -28,4 +29,5 @@ __all__ = [
     "naver_blog",
     "x_post",
     "upload",
+    "write",
 ]
