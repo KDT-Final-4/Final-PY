@@ -7,8 +7,6 @@ import os
 from dataclasses import dataclass
 from typing import Optional
 from urllib.parse import urlparse
-import uuid
-from pathlib import Path
 
 from playwright.async_api import async_playwright
 
@@ -74,32 +72,9 @@ async def _open_editor(browser, blog_id: str, session_file: str):
     _log("글쓰기 페이지 이동")
     await page.goto(f"https://blog.naver.com/{blog_id}?Redirect=Write&", timeout=30000)
     _log(f"현재 페이지 URL: {page.url}")
-    # 디버그: 현재 페이지 HTML 저장
-    try:
-        os.makedirs("/app/tmp/naver_dump", exist_ok=True)
-        html_path = f"/app/tmp/naver_dump/editor_page.html"
-        await page.wait_for_timeout(1000)
-        html = await page.content()
-        with open(html_path, "w", encoding="utf-8") as f:
-            f.write(html)
-        _log(f"에디터 페이지 HTML 저장: {html_path}")
-    except Exception as exc:
-        _log("에디터 HTML 저장 실패", level="WARN", submessage=str(exc))
     await page.wait_for_selector("iframe[name='mainFrame']")
     frame = page.frame(name="mainFrame")
     return frame, page
-
-
-async def _screenshot(page, label: str) -> None:
-    """디버그용 스크린샷 저장."""
-    try:
-        base = Path("/app/tmp/naver_shots")
-        base.mkdir(parents=True, exist_ok=True)
-        filename = base / f"{label}_{uuid.uuid4().hex[:8]}.png"
-        await page.screenshot(path=filename, full_page=True)
-        _log(f"스크린샷 저장: {filename}")
-    except Exception as exc:
-        _log("스크린샷 저장 실패", level="WARN", submessage=str(exc))
 
 
 def _find_editor_frame(frame):
@@ -333,20 +308,14 @@ class NaverBlogService:
                 await _confirm_trusted_device(page)
                 await _close_existing_draft(frame)
                 await _close_help_panel(frame)
-                await _screenshot(page, "after_open")
 
                 if not await _fill_title(frame, title):
-                    await _screenshot(page, "title_failed")
                     return NaverBlogPublishResult(False, "제목 입력 실패")
-                await _screenshot(page, "after_title")
 
                 if not await _fill_content(frame, content):
-                    await _screenshot(page, "content_failed")
                     return NaverBlogPublishResult(False, "본문 입력 실패")
-                await _screenshot(page, "after_content")
 
                 if not await _publish(frame):
-                    await _screenshot(page, "publish_failed")
                     return NaverBlogPublishResult(False, "발행 버튼 클릭 실패")
 
                 # 발행 후 URL을 베스트에포트로 획득
@@ -360,8 +329,6 @@ class NaverBlogService:
                         final_url = page.url
                     except Exception:
                         pass
-                await _screenshot(page, "after_publish")
-
                 return NaverBlogPublishResult(True, "게시물 발행 완료", final_url)
 
             except Exception as exc:
