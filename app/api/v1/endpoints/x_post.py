@@ -18,7 +18,7 @@ async def publish_x(
     service: XPostService = Depends(get_x_post_service),
 ) -> XPublishResponse:
     try:
-        url = service.post(
+        url = await service.post_async(
             title=body.title,
             content=body.content,
             consumer_key=body.consumer_key,

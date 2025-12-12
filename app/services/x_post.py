@@ -8,6 +8,7 @@ from typing import Optional
 import tweepy
 
 from app import config
+from app.logs import async_send_log
 
 
 def _build_status(title: str, content: str, limit: int = 280) -> str:
@@ -63,13 +64,15 @@ class XPostService:
 
         # INFO 로그
         try:
-            from app.logs import send_log
-
-            send_log(
-                message="X 업로드 시작",
-                submessage=f"title_preview={status[:40]}",
-                logged_process="x_post",
-            )
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                loop.create_task(
+                    async_send_log(
+                        message="X 업로드 시작",
+                        submessage=f"title_preview={status[:40]}",
+                        logged_process="x_post",
+                    )
+                )
         except Exception:
             pass
 
@@ -87,13 +90,23 @@ class XPostService:
             raise RuntimeError(f"트윗 ID를 찾지 못했습니다: {resp}")
         url = f"https://twitter.com/i/web/status/{tweet_id}"
         try:
-            from app.logs import send_log
-
-            send_log(
-                message="X 업로드 완료",
-                submessage=f"url={url}",
-                logged_process="x_post",
-            )
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                loop.create_task(
+                    async_send_log(
+                        message="X 업로드 완료",
+                        submessage=f"url={url}",
+                        logged_process="x_post",
+                    )
+                )
         except Exception:
             pass
         return url
+
+    async def post_async(
+        self,
+        title: str,
+        content: str,
+        **kwargs,
+    ) -> str:
+        return await asyncio.to_thread(self.post, title, content, **kwargs)

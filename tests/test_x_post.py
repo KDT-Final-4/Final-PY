@@ -13,6 +13,9 @@ class DummyXPostService(XPostService):
     def post(self, title: str, content: str, **kwargs) -> str:  # type: ignore[override]
         return "https://twitter.com/i/web/status/12345"
 
+    async def post_async(self, title: str, content: str, **kwargs) -> str:  # type: ignore[override]
+        return self.post(title, content, **kwargs)
+
 
 def test_x_publish_returns_url():
     app.dependency_overrides[get_x_post_service] = lambda: DummyXPostService()

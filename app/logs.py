@@ -25,6 +25,7 @@ from typing import Optional
 import httpx
 from app import config
 
+
 class LogSendError(RuntimeError):
     """Raised when a log cannot be delivered to the remote endpoint."""
 
@@ -110,3 +111,67 @@ def send_log(
     finally:
         if close_client:
             client.close()
+
+
+async def async_send_log(
+    *,
+    message: str,
+    level: str = "INFO",
+    submessage: str = "",
+    logged_process: str = "",
+    user_id: int = 0,
+    job_id: str = "",
+    endpoint: Optional[str] = None,
+    source: Optional[str] = None,
+    meta: Optional[dict] = None,
+    timeout: Optional[float] = None,
+    client: Optional[httpx.AsyncClient] = None,
+    raise_on_error: bool = False,
+) -> Optional[httpx.Response]:
+    """비동기 버전의 send_log."""
+    log_level = level.upper()
+    if log_level not in {"INFO", "WARN", "ERROR"}:
+        log_level = "INFO"
+
+    meta = meta or {}
+    payload = {
+        "userId": user_id,
+        "logType": log_level,
+        "loggedProcess": logged_process or source or config.get_log_source(),
+        "loggedDate": datetime.now(timezone.utc).isoformat(),
+        "message": message,
+        "submessage": submessage,
+        "jobId": job_id,
+        "level": log_level,
+        "meta": meta,
+        "source": source or config.get_log_source(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+    print(
+        f"[LOG][{payload['logType']}] {payload['message']} | {payload['loggedProcess']} | {payload['submessage']} | meta={payload['meta']}"
+    )
+
+    try:
+        endpoint_url = config.get_log_endpoint(endpoint)
+    except Exception:
+        if not raise_on_error:
+            return None
+        raise
+
+    timeout_val = config.get_log_timeout(timeout)
+    close_client = client is None
+    client = client or httpx.AsyncClient()
+
+    try:
+        response = await client.post(endpoint_url, json=payload, timeout=timeout_val)
+        response.raise_for_status()
+        return response
+    except httpx.HTTPError as exc:
+        print(f"[LOG][{log_level}] 전송 실패: {exc}")
+        if raise_on_error:
+            raise LogSendError(f"로그 전송 실패: {exc}") from exc
+        return None
+    finally:
+        if close_client:
+            await client.aclose()

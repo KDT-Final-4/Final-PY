@@ -10,7 +10,7 @@ from urllib.parse import quote
 
 from playwright.async_api import Browser, Page, async_playwright
 
-from app.logs import send_log
+from app.logs import async_send_log
 from app.schemas.products import SsadaguProduct
 
 SSADAGU_SEARCH_URL = "https://ssadagu.kr/shop/search.php?ss_tx={query}"
@@ -103,11 +103,7 @@ class SsadaguService:
             browser: Browser = await p.chromium.launch(headless=headless)
             page = await browser.new_page()
             try:
-                send_log(
-                    message="싸다구 검색 시작",
-                    submessage=f"keyword={keyword}",
-                    logged_process="ssadagu",
-                )
+                await _log_async("INFO", f"싸다구 검색 시작: {keyword}")
                 try:
                     await page.goto(search_url, wait_until="networkidle", timeout=page_timeout_ms)
                 except Exception:
@@ -157,12 +153,7 @@ class SsadaguService:
                             price = await _extract_price_from_detail(detail_page)
                             detail_specs = await _extract_detail_specs(detail_page)
                         except Exception as exc:  # pragma: no cover - 네트워크 환경 의존
-                            send_log(
-                                message="싸다구 상세 정보 추출 실패",
-                                submessage=f"{link} | {exc}",
-                                level="WARN",
-                                logged_process="ssadagu",
-                            )
+                            await _log_async("WARN", f"상세 정보 추출 실패 {link} | {exc}")
                         finally:
                             if detail_page:
                                 try:
@@ -180,19 +171,17 @@ class SsadaguService:
                             )
                         )
                     except Exception as exc:  # pragma: no cover - 네트워크 환경 의존
-                        send_log(
-                            message="싸다구 상품 파싱 실패",
-                            submessage=str(exc),
-                            level="WARN",
-                            logged_process="ssadagu",
-                        )
+                        await _log_async("WARN", f"상품 파싱 실패: {exc}")
                         continue
             finally:
                 await browser.close()
 
-        send_log(
-            message="싸다구 검색 완료",
-            submessage=f"keyword={keyword}, count={len(products)}",
-            logged_process="ssadagu",
-        )
+        await _log_async("INFO", f"싸다구 검색 완료: {keyword}, count={len(products)}")
         return products
+
+
+async def _log_async(level: str, message: str) -> None:
+    try:
+        await async_send_log(message=message, level=level, logged_process="ssadagu")
+    except Exception:
+        return

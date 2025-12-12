@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Optional
 
-from app.logs import send_log
+from app.logs import async_send_log
 from app.prompts.keywords import get_system_prompt
 from app.schemas.llm import LlmSetting
 from app.schemas.trends import GoogleTrendItem
@@ -36,7 +36,7 @@ class KeywordService:
         system_prompt = get_system_prompt()
         user_input = self._user_input(trends, extra_prompt)
 
-        send_log(
+        await send_log_async_safe(
             message="트렌드 키워드 → 검색어 변환 시작",
             submessage=f"count={len(trends)}",
             logged_process="keywords",
@@ -60,7 +60,7 @@ class KeywordService:
         except Exception:
             keyword_out = default_keyword
 
-        send_log(
+        await send_log_async_safe(
             message="트렌드 키워드 → 검색어 변환 완료",
             submessage=f"keyword={keyword_out}, real={real_keyword}",
             logged_process="keywords",
@@ -70,3 +70,9 @@ class KeywordService:
             "real_keyword": real_keyword,
             "reason": reason.strip(),
         }
+async def send_log_async_safe(**kwargs) -> None:
+    try:
+        await async_send_log(**kwargs)
+    except Exception:
+        # 로깅 실패는 흐름에 영향 주지 않음
+        return

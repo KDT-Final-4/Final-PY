@@ -12,7 +12,7 @@ from pathlib import Path
 
 from playwright.async_api import async_playwright
 
-from app.logs import send_log
+from app.logs import async_send_log
 
 
 DEFAULT_SESSION_FILE = "/tmp/naver_blog_session.json"
@@ -20,7 +20,15 @@ LOGIN_URL = "https://nid.naver.com/nidlogin.login"
 
 
 def _log(message: str, *, level: str = "INFO", submessage: str = "") -> None:
-    send_log(message=message, level=level, submessage=submessage, logged_process="naver_blog")
+    try:
+        # fire-and-forget async; if not awaited, it runs in loop via create_task
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            loop.create_task(async_send_log(message=message, level=level, submessage=submessage, logged_process="naver_blog"))
+        else:
+            asyncio.run(async_send_log(message=message, level=level, submessage=submessage, logged_process="naver_blog"))
+    except Exception:
+        return
 
 
 def _ensure_session_path(session_file: str) -> None:
