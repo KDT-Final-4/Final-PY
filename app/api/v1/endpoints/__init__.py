@@ -12,6 +12,7 @@ from app.api.v1.endpoints import (
     crawler,
     naver_blog,
     x_post,
+    upload,
 )
 
 __all__ = [
@@ -26,4 +27,5 @@ __all__ = [
     "crawler",
     "naver_blog",
     "x_post",
+    "upload",
 ]

@@ -40,3 +40,10 @@ class NaverBlogPublishResponse(BaseModel):
     success: bool = Field(..., description="업로드 성공 여부")
     message: str = Field(..., description="결과 메시지")
     url: str | None = Field(None, description="발행된 글 URL(성공 시)")
+
+
+class ContentLinkUpdate(BaseModel):
+    """업로드 후 링크 콜백용 페이로드."""
+
+    jobId: str = Field(..., description="작업 ID")
+    link: str = Field(..., description="업로드된 글 링크")
