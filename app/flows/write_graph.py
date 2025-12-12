@@ -24,7 +24,9 @@ else:
     _import_error = None
 
 
-def build_write_graph(services, *, max_retries: int = 5, relevance_threshold: float = 0.8):
+def build_write_graph(
+    services, *, max_retries: int = 5, relevance_threshold: float = 0.8
+):
     """LangGraph로 노드 흐름을 구성해 컴파일된 그래프를 반환한다."""
     if _import_error:
         raise _import_error
@@ -34,7 +36,13 @@ def build_write_graph(services, *, max_retries: int = 5, relevance_threshold: fl
     @traceable(run_type="tool")
     async def log(level: str, msg: str, sub: str = "", job_id: str = ""):
         try:
-            await async_send_log(level=level, message=msg, submessage=sub, logged_process="write", job_id=job_id)
+            await async_send_log(
+                level=level,
+                message=msg,
+                submessage=sub,
+                logged_process="write",
+                job_id=job_id,
+            )
         except Exception:
             return
 
@@ -48,7 +56,9 @@ def build_write_graph(services, *, max_retries: int = 5, relevance_threshold: fl
         trends = await services.trends.fetch_keywords(limit=20, headless=True)
         if not trends:
             raise RuntimeError("트렌드 키워드 수집 실패")
-        refined = await services.keywords.refine(trends, llm_setting=state["llm_setting"])
+        refined = await services.keywords.refine(
+            trends, llm_setting=state["llm_setting"]
+        )
         keyword = refined.get("real_keyword") or refined.get("keyword") or trends[0]
         await log("INFO", "트렌드 기반 키워드 선택", keyword, job_id)
         state["keyword"] = keyword
@@ -57,7 +67,9 @@ def build_write_graph(services, *, max_retries: int = 5, relevance_threshold: fl
     @traceable(run_type="chain")
     async def fetch_products(state: Dict[str, Any]) -> Dict[str, Any]:
         keyword = state["keyword"]
-        products = await services.ssadagu.search(keyword, max_products=20, headless=True)
+        products = await services.ssadagu.search(
+            keyword, max_products=20, headless=True
+        )
         if not products:
             raise RuntimeError("싸다구 상품을 찾지 못했습니다.")
         state["products"] = list(products)
@@ -74,7 +86,9 @@ def build_write_graph(services, *, max_retries: int = 5, relevance_threshold: fl
         job_id = state.get("job_id", "")
         keyword = state["keyword"]
         product: SsadaguProduct = state["product"]
-        rel = await services.relevance.evaluate(keyword, product, llm_setting=state["llm_setting"])
+        rel = await services.relevance.evaluate(
+            keyword, product, llm_setting=state["llm_setting"]
+        )
         score = float(rel.get("score", 0.0))
         await log("INFO", "연관도 평가", f"score={score}", job_id)
         state["relevance_score"] = score
@@ -94,8 +108,12 @@ def build_write_graph(services, *, max_retries: int = 5, relevance_threshold: fl
     @traceable(run_type="chain")
     async def generate(state: Dict[str, Any]) -> Dict[str, Any]:
         product: SsadaguProduct = state["product"]
-        platform = state.get("platform") or _resolve_platform(state["upload_channel"].name)
-        promo = await services.promo.generate(product, platform=platform, llm_setting=state["llm_setting"])
+        platform = state.get("platform") or _resolve_platform(
+            state["upload_channel"].name
+        )
+        promo = await services.promo.generate(
+            product, platform=platform, llm_setting=state["llm_setting"]
+        )
         title = promo.get("title", "").strip()
         body = promo.get("body", "").strip()
         redirect_url = _build_redirect_url(state["job_id"])
@@ -110,7 +128,9 @@ def build_write_graph(services, *, max_retries: int = 5, relevance_threshold: fl
         if gen_type != "AUTO":
             state["link"] = ""
             return state
-        upload_req = state["upload_request_builder"](state, state["title"], state["body"], state["keyword"])
+        upload_req = state["upload_request_builder"](
+            state, state["title"], state["body"], state["keyword"]
+        )
         upload_res = await services.upload.upload(upload_req)
         state["link"] = upload_res.link
         return state
@@ -125,7 +145,11 @@ def build_write_graph(services, *, max_retries: int = 5, relevance_threshold: fl
             title=state["title"],
             body=state["body"],
             generation_type=state["generation_type"],
-            link=state.get("link", "") if (state.get("generation_type") or "").upper() == "AUTO" else "",
+            link=(
+                state.get("link", "")
+                if (state.get("generation_type") or "").upper() == "AUTO"
+                else ""
+            ),
             keyword=state["keyword"],
             product=product,
         )
@@ -179,7 +203,7 @@ def _build_redirect_url(job_id: str) -> str:
     base = config.get_log_endpoint()
     parsed = urlparse(base)
     host = f"{parsed.scheme}://{parsed.netloc}"
-    return f"{host}/redirect?id={job_id}"
+    return f"{host}/api/link?jobId={job_id}"
 
 
 async def _post_content(
