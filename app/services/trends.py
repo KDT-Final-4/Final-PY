@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Sequence
 from contextlib import asynccontextmanager
 from typing import Optional, Set
@@ -10,9 +9,8 @@ from typing import Optional, Set
 from playwright.async_api import Page, async_playwright
 from pydantic import ValidationError
 
+from app.logs import send_log
 from app.schemas.trends import GoogleCrawlerResponse, GoogleTrendItem
-
-logger = logging.getLogger(__name__)
 
 TREND_URL = "https://trends.google.co.kr/trending?geo=KR"
 EXCLUDED_TEXTS: Set[str] = {
@@ -155,11 +153,27 @@ class GoogleTrendsService:
         """
         excluded = excluded_texts or EXCLUDED_TEXTS
         try:
+            send_log(
+                message="구글 트렌드 크롤링 시작",
+                submessage=f"limit={limit}",
+                logged_process="trends",
+            )
             async with _trend_page(headless=headless, page_timeout_ms=page_timeout_ms) as page:
                 return await _extract_keywords(page, limit, excluded)
         except Exception as exc:  # pragma: no cover - 네트워크/Playwright 예외
-            logger.exception("구글 트렌드 크롤링 실패: %s", exc)
+            send_log(
+                message="구글 트렌드 크롤링 실패",
+                submessage=str(exc),
+                level="ERROR",
+                logged_process="trends",
+            )
             return []
+        finally:
+            send_log(
+                message="구글 트렌드 크롤링 종료",
+                submessage=f"limit={limit}",
+                logged_process="trends",
+            )
 
     async def fetch_google_crawler_response(
         self,
@@ -177,6 +191,11 @@ class GoogleTrendsService:
             headless=headless,
             excluded_texts=excluded_texts,
             page_timeout_ms=page_timeout_ms,
+        )
+        send_log(
+            message="구글 트렌드 응답 빌드 완료",
+            submessage=f"count={len(keywords)}",
+            logged_process="trends",
         )
         return [
             GoogleTrendItem(
@@ -201,8 +220,13 @@ class GoogleTrendsService:
                 if isinstance(crawler_response, GoogleCrawlerResponse)
                 else GoogleCrawlerResponse.model_validate(crawler_response)
             )
-        except ValidationError:
-            logger.exception("GoogleCrawlerResponse 파싱 실패")
+        except ValidationError as exc:
+            send_log(
+                message="GoogleCrawlerResponse 파싱 실패",
+                submessage=str(exc),
+                level="ERROR",
+                logged_process="trends",
+            )
             return []
 
         keywords: list[str] = []

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Optional
 
+from app.logs import send_log
 from app.prompts.relevance import get_system_prompt
 from app.schemas.llm import LlmSetting
 from app.schemas.products import SsadaguProduct
@@ -49,6 +50,11 @@ class RelevanceService:
         system_prompt = get_system_prompt()
         user_input = self._user_input(keyword, product, extra_prompt)
 
+        send_log(
+            message="키워드-상품 연관도 평가 시작",
+            submessage=f"keyword={keyword}",
+            logged_process="relevance",
+        )
         answer = await self.llm.chat(
             system_prompt=system_prompt,
             user_input=user_input,
@@ -73,6 +79,11 @@ class RelevanceService:
         if score > 1.0:
             score = 1.0
 
+        send_log(
+            message="키워드-상품 연관도 평가 완료",
+            submessage=f"keyword={keyword}, score={score}",
+            logged_process="relevance",
+        )
         return {
             "keyword": keyword,
             "product_title": product.title,

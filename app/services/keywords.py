@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Optional
 
+from app.logs import send_log
 from app.prompts.keywords import get_system_prompt
 from app.schemas.llm import LlmSetting
 from app.schemas.trends import GoogleTrendItem
@@ -35,6 +36,11 @@ class KeywordService:
         system_prompt = get_system_prompt()
         user_input = self._user_input(trends, extra_prompt)
 
+        send_log(
+            message="트렌드 키워드 → 검색어 변환 시작",
+            submessage=f"count={len(trends)}",
+            logged_process="keywords",
+        )
         answer = await self.llm.chat(
             system_prompt=system_prompt,
             user_input=user_input,
@@ -54,6 +60,11 @@ class KeywordService:
         except Exception:
             keyword_out = default_keyword
 
+        send_log(
+            message="트렌드 키워드 → 검색어 변환 완료",
+            submessage=f"keyword={keyword_out}, real={real_keyword}",
+            logged_process="keywords",
+        )
         return {
             "keyword": keyword_out,
             "real_keyword": real_keyword,

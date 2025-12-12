@@ -61,6 +61,18 @@ class XPostService:
             wait_on_rate_limit=True,
         )
 
+        # INFO 로그
+        try:
+            from app.logs import send_log
+
+            send_log(
+                message="X 업로드 시작",
+                submessage=f"title_preview={status[:40]}",
+                logged_process="x_post",
+            )
+        except Exception:
+            pass
+
         resp = client.create_tweet(text=status)
         # resp can be Tweepy Response or dict
         if hasattr(resp, "data"):
@@ -74,4 +86,14 @@ class XPostService:
         if not tweet_id:
             raise RuntimeError(f"트윗 ID를 찾지 못했습니다: {resp}")
         url = f"https://twitter.com/i/web/status/{tweet_id}"
+        try:
+            from app.logs import send_log
+
+            send_log(
+                message="X 업로드 완료",
+                submessage=f"url={url}",
+                logged_process="x_post",
+            )
+        except Exception:
+            pass
         return url

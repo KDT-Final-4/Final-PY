@@ -5,10 +5,11 @@ from __future__ import annotations
 import json
 from typing import Optional
 
+from app.logs import send_log
+from app.prompts.promo import get_platform_guide
 from app.schemas.llm import LlmSetting
 from app.schemas.products import SsadaguProduct
 from app.services.llm import LLMService
-from app.prompts.promo import get_platform_guide
 
 
 class PromoService:
@@ -58,6 +59,11 @@ class PromoService:
         system_prompt = self._build_system_prompt(platform)
         user_input = self._build_user_input(product, extra_prompt)
 
+        send_log(
+            message="프로모션 생성 시작",
+            submessage=f"platform={platform}, product={product.title}",
+            logged_process="promo",
+        )
         answer = await self.llm.chat(
             system_prompt=system_prompt,
             user_input=user_input,
@@ -74,6 +80,11 @@ class PromoService:
             # LLM이 JSON 형식이 아닐 경우 대비하여 fallback
             title, body = "", answer.strip()
 
+        send_log(
+            message="프로모션 생성 완료",
+            submessage=f"platform={platform}, title={title}",
+            logged_process="promo",
+        )
         return {
             "title": title.strip(),
             "body": body.strip(),
