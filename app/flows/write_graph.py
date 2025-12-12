@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
 import httpx
+from langsmith import traceable
 
 from app import config
 from app.logs import async_send_log
@@ -30,12 +31,14 @@ def build_write_graph(services, *, max_retries: int = 5, relevance_threshold: fl
 
     graph = StateGraph(dict)
 
+    @traceable(run_type="tool")
     async def log(level: str, msg: str, sub: str = "", job_id: str = ""):
         try:
             await async_send_log(level=level, message=msg, submessage=sub, logged_process="write", job_id=job_id)
         except Exception:
             return
 
+    @traceable(run_type="chain")
     async def prepare_keyword(state: Dict[str, Any]) -> Dict[str, Any]:
         job_id = state.get("job_id", "")
         keyword = state.get("keyword")
@@ -51,6 +54,7 @@ def build_write_graph(services, *, max_retries: int = 5, relevance_threshold: fl
         state["keyword"] = keyword
         return state
 
+    @traceable(run_type="chain")
     async def fetch_products(state: Dict[str, Any]) -> Dict[str, Any]:
         keyword = state["keyword"]
         products = await services.ssadagu.search(keyword, max_products=20, headless=True)
@@ -59,11 +63,13 @@ def build_write_graph(services, *, max_retries: int = 5, relevance_threshold: fl
         state["products"] = list(products)
         return state
 
+    @traceable(run_type="chain")
     async def choose_product(state: Dict[str, Any]) -> Dict[str, Any]:
         products = state.get("products") or []
         state["product"] = random.choice(products)
         return state
 
+    @traceable(run_type="chain")
     async def evaluate(state: Dict[str, Any]) -> Dict[str, Any]:
         job_id = state.get("job_id", "")
         keyword = state["keyword"]
@@ -74,6 +80,7 @@ def build_write_graph(services, *, max_retries: int = 5, relevance_threshold: fl
         state["relevance_score"] = score
         return state
 
+    @traceable(run_type="router")
     def route_after_eval(state: Dict[str, Any]) -> str:
         score = state.get("relevance_score", 0.0)
         retries = state.get("retries", 0)
@@ -84,6 +91,7 @@ def build_write_graph(services, *, max_retries: int = 5, relevance_threshold: fl
         state["retries"] = retries + 1
         return "retry"
 
+    @traceable(run_type="chain")
     async def generate(state: Dict[str, Any]) -> Dict[str, Any]:
         product: SsadaguProduct = state["product"]
         platform = state.get("platform") or _resolve_platform(state["upload_channel"].name)
@@ -96,6 +104,7 @@ def build_write_graph(services, *, max_retries: int = 5, relevance_threshold: fl
         state["body"] = body
         return state
 
+    @traceable(run_type="chain")
     async def upload_if_auto(state: Dict[str, Any]) -> Dict[str, Any]:
         gen_type = (state.get("generation_type") or "").upper()
         if gen_type != "AUTO":
@@ -106,6 +115,7 @@ def build_write_graph(services, *, max_retries: int = 5, relevance_threshold: fl
         state["link"] = upload_res.link
         return state
 
+    @traceable(run_type="chain")
     async def finalize(state: Dict[str, Any]) -> Dict[str, Any]:
         product: SsadaguProduct = state["product"]
         await _post_content(
@@ -121,6 +131,7 @@ def build_write_graph(services, *, max_retries: int = 5, relevance_threshold: fl
         )
         return state
 
+    @traceable(run_type="chain")
     async def fail(state: Dict[str, Any]) -> Dict[str, Any]:
         job_id = state.get("job_id", "")
         await log("ERROR", "연관된 상품을 찾지 못했습니다.", job_id=job_id)

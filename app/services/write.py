@@ -7,6 +7,7 @@ from typing import Optional
 from urllib.parse import urlparse
 
 import httpx
+from langsmith import traceable
 
 from app import config
 from app.logs import async_send_log
@@ -44,6 +45,7 @@ class WriteService:
         self.promo = promo or PromoService()
         self.upload = upload or UploadService()
 
+    @traceable(run_type="chain")
     async def process(self, req: WriteRequest) -> WriteResponse:
         """전체 프로세스를 실행한다. LangGraph가 있으면 그래프, 없으면 순차."""
         try:
@@ -76,6 +78,7 @@ class WriteService:
         except ImportError:
             return await self._process_sequential(req)
 
+    @traceable(run_type="chain")
     async def _process_sequential(self, req: WriteRequest) -> WriteResponse:
         """LangGraph 미사용 시 순차 실행."""
         job_id = req.jobId
@@ -185,6 +188,7 @@ def _to_upload_request(req: WriteRequest, title: str, body: str, keyword: str) -
     )
 
 
+@traceable(run_type="tool")
 async def _post_content(
     *,
     job_id: str,
