@@ -8,7 +8,6 @@ from typing import Optional
 from app.logs import async_send_log
 from app.prompts.keywords import get_system_prompt
 from app.schemas.llm import LlmSetting
-from app.schemas.trends import GoogleTrendItem
 from app.services.llm import LLMService
 
 
@@ -19,8 +18,8 @@ class KeywordService:
         self.llm = llm_service or LLMService()
 
     @staticmethod
-    def _user_input(trends: list[GoogleTrendItem], extra_prompt: str | None) -> str:
-        lines = "\n".join([f"- {item.keyword} (cat:{item.categoryId}, vol:{item.searchVolume})" for item in trends])
+    def _user_input(trends: list[str], extra_prompt: str | None) -> str:
+        lines = "\n".join([f"- {kw}" for kw in trends])
         return f"""트렌드 키워드 목록:
 {lines}
 추가 지시문(선택): {extra_prompt or '없음'}
@@ -28,7 +27,7 @@ class KeywordService:
 
     async def refine(
         self,
-        trends: list[GoogleTrendItem],
+        trends: list[str],
         *,
         llm_setting: LlmSetting | None = None,
     ) -> dict[str, str]:
@@ -49,7 +48,7 @@ class KeywordService:
             api_key=llm_setting.apiKey if llm_setting else None,
         )
 
-        default_keyword = trends[0].keyword if trends else ""
+        default_keyword = trends[0] if trends else ""
         real_keyword = default_keyword
         reason = answer.strip()
         try:

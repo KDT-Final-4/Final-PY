@@ -17,5 +17,5 @@ async def refine_keyword(
     body: KeywordRefineRequest,
     service: KeywordService = Depends(get_keyword_service),
 ) -> KeywordRefineResponse:
-    result = await service.refine(trends=body.google_trends, llm_setting=body.llm_setting)
+    result = await service.refine(trends=body.trends, llm_setting=body.llm_setting)
     return KeywordRefineResponse(**result)

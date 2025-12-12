@@ -36,7 +36,7 @@ def send_log(
     level: str = "INFO",
     submessage: str = "",
     logged_process: str = "",
-    user_id: int = 0,
+    user_id: int = 1,
     job_id: str = "",
     endpoint: Optional[str] = None,
     source: Optional[str] = None,
@@ -67,11 +67,12 @@ def send_log(
         log_level = "INFO"
 
     meta = meta or {}
+    now_str = _now_str()
     payload = {
         "userId": user_id,
         "logType": log_level,
         "loggedProcess": logged_process or source or config.get_log_source(),
-        "loggedDate": datetime.now(timezone.utc).isoformat(),
+        "loggedDate": now_str,
         "message": message,
         "submessage": submessage,
         "jobId": job_id,
@@ -79,7 +80,7 @@ def send_log(
         "level": log_level,
         "meta": meta,
         "source": source or config.get_log_source(),
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": now_str,
     }
 
     # 즉시 로컬 콘솔 확인
@@ -119,7 +120,7 @@ async def async_send_log(
     level: str = "INFO",
     submessage: str = "",
     logged_process: str = "",
-    user_id: int = 0,
+    user_id: int = 1,
     job_id: str = "",
     endpoint: Optional[str] = None,
     source: Optional[str] = None,
@@ -134,18 +135,19 @@ async def async_send_log(
         log_level = "INFO"
 
     meta = meta or {}
+    now_str = _now_str()
     payload = {
         "userId": user_id,
         "logType": log_level,
         "loggedProcess": logged_process or source or config.get_log_source(),
-        "loggedDate": datetime.now(timezone.utc).isoformat(),
+        "loggedDate": now_str,
         "message": message,
         "submessage": submessage,
         "jobId": job_id,
         "level": log_level,
         "meta": meta,
         "source": source or config.get_log_source(),
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": now_str,
     }
 
     print(
@@ -175,3 +177,8 @@ async def async_send_log(
     finally:
         if close_client:
             await client.aclose()
+
+
+def _now_str() -> str:
+    """Java LocalDateTime 호환(UTC, 밀리초) 포맷 문자열 생성."""
+    return datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]

@@ -23,10 +23,7 @@ def test_keyword_refine_returns_real_keyword():
     resp = client.post(
         "/api/keywords/refine",
         json={
-            "google_trends": [
-                {"categoryId": 1, "keyword": "트렌드", "searchVolume": 0, "snsType": "google"},
-                {"categoryId": 1, "keyword": "연필", "searchVolume": 0, "snsType": "google"},
-            ],
+            "trends": ["트렌드", "연필"],
             "llm_setting": None,
         },
     )
