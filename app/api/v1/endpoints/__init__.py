@@ -9,6 +9,7 @@ from app.api.v1.endpoints import (
     relevance,
     ssadagu,
     trends,
+    crawler,
     naver_blog,
     x_post,
 )
@@ -22,6 +23,7 @@ __all__ = [
     "relevance",
     "ssadagu",
     "trends",
+    "crawler",
     "naver_blog",
     "x_post",
 ]

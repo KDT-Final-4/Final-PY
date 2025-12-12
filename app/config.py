@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 from typing import List, Optional
+from urllib.parse import urlparse, urlunparse
 
 from dotenv import load_dotenv
 
@@ -18,6 +19,7 @@ load_dotenv()
 LOG_ENDPOINT_KEY = "LOG_ENDPOINT"
 LOG_SOURCE_KEY = "LOG_SOURCE"
 LOG_TIMEOUT_KEY = "LOG_TIMEOUT"
+LOG_TREND_ENDPOINT_KEY = "LOG_TREND_ENDPOINT"
 OPENAI_API_KEY_KEY = "OPENAI_API_KEY"
 X_CONSUMER_KEY = "X_CONSUMER_KEY"
 X_CONSUMER_SECRET = "X_CONSUMER_SECRET"
@@ -76,6 +78,30 @@ def get_log_timeout(override: Optional[float] = None) -> float:
     return _get_float_env(LOG_TIMEOUT_KEY, 5.0)
 
 
+def get_log_trend_endpoint(override: Optional[str] = None) -> str:
+    """
+    트렌드 콜백 전송 엔드포인트.
+    우선순위: override > LOG_TREND_ENDPOINT > LOG_ENDPOINT 기반 파생(/trend)
+    """
+    if override:
+        return override.rstrip("/")
+
+    env_value = os.getenv(LOG_TREND_ENDPOINT_KEY)
+    if env_value:
+        return env_value.rstrip("/")
+
+    base = get_log_endpoint()
+    parsed = urlparse(base)
+    path = parsed.path.rstrip("/")
+    parts = [p for p in path.split("/") if p]
+    if parts and parts[-1] == "log":
+        parts[-1] = "trend"
+    else:
+        parts.append("trend")
+    new_path = "/" + "/".join(parts)
+    return urlunparse(parsed._replace(path=new_path))
+
+
 # ---- OpenAI 설정 ----
 def get_openai_api_key(override: Optional[str] = None) -> str:
     """OpenAI API Key 조회 (필수)."""
@@ -103,6 +129,7 @@ __all__ = [
     "LOG_ENDPOINT_KEY",
     "LOG_SOURCE_KEY",
     "LOG_TIMEOUT_KEY",
+    "LOG_TREND_ENDPOINT_KEY",
     "OPENAI_API_KEY_KEY",
     "X_CONSUMER_KEY",
     "X_CONSUMER_SECRET",
@@ -111,6 +138,7 @@ __all__ = [
     "get_log_endpoint",
     "get_log_source",
     "get_log_timeout",
+    "get_log_trend_endpoint",
     "get_openai_api_key",
     "get_x_consumer_key",
     "get_x_consumer_secret",

@@ -11,6 +11,7 @@ from app.api.v1.endpoints import (
     relevance,
     ssadagu,
     trends,
+    crawler,
     naver_blog,
     x_post,
 )
@@ -27,5 +28,6 @@ router.include_router(content.router)
 router.include_router(publish.router)
 router.include_router(naver_blog.router)
 router.include_router(x_post.router)
+router.include_router(crawler.router)
 
 __all__ = ["router"]
