@@ -49,6 +49,7 @@ class WriteService:
     async def process(self, req: WriteRequest) -> WriteResponse:
         """전체 프로세스를 실행한다. LangGraph가 있으면 그래프, 없으면 순차."""
         upload_channel = _first_channel(req.uploadChannels)
+        user_id = _resolve_user_id(req)
         try:
             from app.flows.write_graph import build_write_graph
 
@@ -63,7 +64,7 @@ class WriteService:
                 "generation_type": req.llmChannel.generationType,
                 "upload_channel": upload_channel,
                 "llm_setting": req.llmChannel,
-                "user_id": req.userId,
+                "user_id": user_id,
                 "job_id": req.jobId,
                 "platform": None,
                 "upload_request_builder": _to_upload_request_from_state,
@@ -83,7 +84,8 @@ class WriteService:
     async def _process_sequential(self, req: WriteRequest) -> WriteResponse:
         """LangGraph 미사용 시 순차 실행."""
         job_id = req.jobId
-        await _log("INFO", "write 프로세스 시작(순차)", job_id=job_id)
+        user_id = _resolve_user_id(req)
+        await _log("INFO", "write 프로세스 시작(순차)", job_id=job_id, user_id=user_id)
         upload_channel = _first_channel(req.uploadChannels)
 
         keyword = req.keyword
@@ -96,7 +98,9 @@ class WriteService:
             keyword = (
                 refined.get("real_keyword") or refined.get("keyword") or keywords[0]
             )
-            await _log("INFO", "트렌드 기반 키워드 선택", sub=keyword, job_id=job_id)
+            await _log(
+                "INFO", "트렌드 기반 키워드 선택", sub=keyword, job_id=job_id, user_id=user_id
+            )
 
         # 2~4. 상품 검색 및 연관도 확인 (최대 5회)
         attempts = 0
@@ -113,12 +117,23 @@ class WriteService:
                 keyword, product, llm_setting=req.llmChannel
             )
             score = float(rel.get("score", 0.0))
-            await _log("INFO", "연관도 평가", sub=f"score={score}", job_id=job_id)
+            await _log(
+                "INFO",
+                "연관도 평가",
+                sub=f"score={score}",
+                job_id=job_id,
+                user_id=user_id,
+            )
             if score >= RELEVANCE_THRESHOLD:
                 chosen_product = product
                 break
         if chosen_product is None:
-            await _log("ERROR", "연관된 상품을 찾지 못했습니다.", job_id=job_id)
+            await _log(
+                "ERROR",
+                "연관된 상품을 찾지 못했습니다.",
+                job_id=job_id,
+                user_id=user_id,
+            )
             raise RuntimeError("연관된 상품을 찾지 못했습니다.")
 
         # 5. 홍보글 작성
@@ -146,14 +161,16 @@ class WriteService:
                 upload_res = await self.upload.upload(upload_req)
                 link_out = upload_res.link
             except Exception as exc:
-                await _log("ERROR", "업로드 실패", sub=str(exc), job_id=job_id)
+                await _log(
+                    "ERROR", "업로드 실패", sub=str(exc), job_id=job_id, user_id=user_id
+                )
                 raise
 
         # /api/content로 결과 전송
         await _post_content(
             job_id=job_id,
             upload_channel_id=upload_channel.id,
-            user_id=req.userId,
+            user_id=user_id,
             title=title,
             body=body_replaced,
             generation_type=generation_type,
@@ -162,7 +179,7 @@ class WriteService:
             product=chosen_product,
         )
 
-        await _log("INFO", "write 프로세스 완료", job_id=job_id)
+        await _log("INFO", "write 프로세스 완료", job_id=job_id, user_id=user_id)
         return WriteResponse(
             jobId=job_id,
             keyword=keyword,
@@ -200,8 +217,9 @@ def _to_upload_request(
     body: str,
     keyword: str,
 ) -> UploadRequest:
+    user_id = _resolve_user_id(req)
     return UploadRequest(
-        userId=req.userId,
+        userId=user_id,
         jobId=req.jobId,
         title=title,
         body=body,
@@ -219,7 +237,7 @@ def _to_upload_request_from_state(
     job_id = state.get("job_id")
     if not job_id:
         raise ValueError("job_id가 필요합니다.")
-    user_id = state.get("user_id", 1)
+    user_id = _state_user_id(state)
     return UploadRequest(
         userId=user_id,
         jobId=job_id,
@@ -269,10 +287,12 @@ async def _post_content(
         async with httpx.AsyncClient() as client:
             await client.post(url, json=payload, timeout=config.get_log_timeout())
     except Exception:
-        await _log("WARN", "컨텐츠 전송 실패", sub=url, job_id=job_id)
+        await _log("WARN", "컨텐츠 전송 실패", sub=url, job_id=job_id, user_id=user_id)
 
 
-async def _log(level: str, message: str, *, sub: str = "", job_id: str = "") -> None:
+async def _log(
+    level: str, message: str, *, sub: str = "", job_id: str = "", user_id: int = 1
+) -> None:
     try:
         await async_send_log(
             level=level,
@@ -280,6 +300,34 @@ async def _log(level: str, message: str, *, sub: str = "", job_id: str = "") -> 
             submessage=sub,
             logged_process="write",
             job_id=job_id,
+            user_id=user_id,
         )
     except Exception:
         return
+
+
+def _resolve_user_id(req: WriteRequest) -> int:
+    """요청에서 사용자 ID를 추출한다."""
+    try:
+        llm_user = getattr(req.llmChannel, "userId", None)  # type: ignore[attr-defined]
+        if llm_user:
+            return llm_user
+    except Exception:
+        pass
+    if getattr(req, "userId", None):
+        return req.userId
+    return 1
+
+
+def _state_user_id(state: dict[str, Any]) -> int:
+    """그래프 상태에서 사용자 ID를 추출한다."""
+    if state.get("user_id"):
+        return state["user_id"]
+    llm_setting = state.get("llm_setting")
+    try:
+        candidate = getattr(llm_setting, "userId", None) or llm_setting.get("userId")  # type: ignore[union-attr]
+        if candidate:
+            return candidate
+    except Exception:
+        pass
+    return 1
