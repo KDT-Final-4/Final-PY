@@ -1,6 +1,7 @@
 """LLM 요청/응답 스키마."""
 
 from __future__ import annotations
+from datetime import datetime
 
 from pydantic import BaseModel, Field
 
@@ -23,13 +24,13 @@ class LlmSetting(BaseModel):
     name: str
     modelName: str
     status: bool
-    maxTokens: str
+    maxTokens: int
     temperature: float
-    prompt: str
-    apiKey: str
+    prompt: str | None
+    apiKey: str | None
     generationType: str
-    createdAt: str
-    updatedAt: str
+    createdAt: datetime
+    updatedAt: datetime
 
 
 LLMChatRequest.model_rebuild()

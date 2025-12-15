@@ -67,7 +67,7 @@ async def _run_crawl_and_callback(
         )
 
 
-@router.post(
+@router.get(
     "",
     summary="구글 트렌드 크롤링 후 콜백(/api/trend)으로 전달",
     description=(
