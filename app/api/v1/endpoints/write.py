@@ -18,12 +18,17 @@ async def _run_write(service: WriteService, body: WriteRequest) -> None:
     try:
         await service.process(body)
     except Exception as exc:  # pragma: no cover - 백그라운드 실패는 로그만
+        try:
+            user_id = getattr(body.llmChannel, "userId", None) or body.userId
+        except Exception:
+            user_id = body.userId
         await async_send_log(
             level="ERROR",
             message="write 프로세스 실패",
             submessage=str(exc),
             logged_process="write",
             job_id=body.jobId,
+            user_id=user_id,
         )
 
 

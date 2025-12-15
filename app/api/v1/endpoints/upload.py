@@ -72,6 +72,6 @@ async def upload_content(
         message="업로드 요청 수락",
         logged_process="upload",
         job_id=body.jobId,
-        submessage=f"channel={body.uploadChannels.name}",
+        submessage=f"channel={body.channelName}",
     )
     return

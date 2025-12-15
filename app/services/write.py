@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import random
-from typing import Optional
+from typing import Any, Optional
 from urllib.parse import urlparse
 
 import httpx
@@ -48,6 +48,8 @@ class WriteService:
     @traceable(run_type="chain")
     async def process(self, req: WriteRequest) -> WriteResponse:
         """전체 프로세스를 실행한다. LangGraph가 있으면 그래프, 없으면 순차."""
+        upload_channel = _first_channel(req.uploadChannels)
+        user_id = _resolve_user_id(req)
         try:
             from app.flows.write_graph import build_write_graph
 
@@ -59,13 +61,13 @@ class WriteService:
             initial = {
                 "keyword": req.keyword,
                 "retries": 0,
-                "generation_type": req.llmSettings.generationType,
-                "upload_channel": req.uploadChannels,
-                "llm_setting": req.llmSettings,
-                "user_id": req.userId,
+                "generation_type": req.llmChannel.generationType,
+                "upload_channel": upload_channel,
+                "llm_setting": req.llmChannel,
+                "user_id": user_id,
                 "job_id": req.jobId,
                 "platform": None,
-                "upload_request_builder": _to_upload_request,
+                "upload_request_builder": _to_upload_request_from_state,
             }
             state = await graph.ainvoke(initial)
             chosen_product: SsadaguProduct = state["product"]
@@ -82,41 +84,72 @@ class WriteService:
     async def _process_sequential(self, req: WriteRequest) -> WriteResponse:
         """LangGraph 미사용 시 순차 실행."""
         job_id = req.jobId
-        await _log("INFO", "write 프로세스 시작(순차)", job_id=job_id)
+        user_id = _resolve_user_id(req)
+        await _log("INFO", "write 프로세스 시작(순차)", job_id=job_id, user_id=user_id)
+        upload_channel = _first_channel(req.uploadChannels)
 
         keyword = req.keyword
-        # 1. 키워드 준비
-        if not keyword:
+        # 1. 키워드 준비 (입력 키워드도 LLM refine 후 사용)
+        if keyword:
+            refined = await self.keywords.refine([keyword], llm_setting=req.llmChannel)
+            keyword = refined.get("real_keyword") or refined.get("keyword") or keyword
+            await _log(
+                "INFO",
+                "입력 키워드 변환",
+                sub=keyword,
+                job_id=job_id,
+                user_id=user_id,
+            )
+        else:
             keywords = await self.trends.fetch_keywords(limit=20, headless=True)
             if not keywords:
                 raise RuntimeError("트렌드 키워드 수집 실패")
-            refined = await self.keywords.refine(keywords, llm_setting=req.llmSettings)
-            keyword = refined.get("real_keyword") or refined.get("keyword") or keywords[0]
-            await _log("INFO", "트렌드 기반 키워드 선택", sub=keyword, job_id=job_id)
+            refined = await self.keywords.refine(keywords, llm_setting=req.llmChannel)
+            keyword = (
+                refined.get("real_keyword") or refined.get("keyword") or keywords[0]
+            )
+            await _log(
+                "INFO", "트렌드 기반 키워드 선택", sub=keyword, job_id=job_id, user_id=user_id
+            )
 
         # 2~4. 상품 검색 및 연관도 확인 (최대 5회)
         attempts = 0
         chosen_product: Optional[SsadaguProduct] = None
         while attempts < MAX_RETRIES:
             attempts += 1
-            products = await self.ssadagu.search(keyword, max_products=20, headless=True)
+            products = await self.ssadagu.search(
+                keyword, max_products=20, headless=True
+            )
             if not products:
                 raise RuntimeError("싸다구 상품을 찾지 못했습니다.")
             product = random.choice(list(products))
-            rel = await self.relevance.evaluate(keyword, product, llm_setting=req.llmSettings)
+            rel = await self.relevance.evaluate(
+                keyword, product, llm_setting=req.llmChannel
+            )
             score = float(rel.get("score", 0.0))
-            await _log("INFO", "연관도 평가", sub=f"score={score}", job_id=job_id)
+            await _log(
+                "INFO",
+                "연관도 평가",
+                sub=f"score={score}",
+                job_id=job_id,
+                user_id=user_id,
+            )
             if score >= RELEVANCE_THRESHOLD:
                 chosen_product = product
                 break
         if chosen_product is None:
-            await _log("ERROR", "연관된 상품을 찾지 못했습니다.", job_id=job_id)
+            await _log(
+                "ERROR",
+                "연관된 상품을 찾지 못했습니다.",
+                job_id=job_id,
+                user_id=user_id,
+            )
             raise RuntimeError("연관된 상품을 찾지 못했습니다.")
 
         # 5. 홍보글 작성
-        platform = _resolve_platform(req.uploadChannels)
+        platform = _resolve_platform(upload_channel)
         promo = await self.promo.generate(
-            chosen_product, platform=platform, llm_setting=req.llmSettings
+            chosen_product, platform=platform, llm_setting=req.llmChannel
         )
         title = promo.get("title", "").strip()
         body = promo.get("body", "").strip()
@@ -126,24 +159,28 @@ class WriteService:
         body_replaced = body.replace(str(chosen_product.product_link), redirect_url)
 
         link_out = ""
-        generation_type = req.llmSettings.generationType
+        generation_type = req.llmChannel.generationType
         generation_type_upper = generation_type.upper() if generation_type else ""
 
         # 7. 업로드 및 컨텐츠 전송
         if generation_type_upper == "AUTO":
             try:
-                upload_req = _to_upload_request(req, title, body_replaced, keyword)
+                upload_req = _to_upload_request(
+                    req, upload_channel, title, body_replaced, keyword
+                )
                 upload_res = await self.upload.upload(upload_req)
                 link_out = upload_res.link
             except Exception as exc:
-                await _log("ERROR", "업로드 실패", sub=str(exc), job_id=job_id)
+                await _log(
+                    "ERROR", "업로드 실패", sub=str(exc), job_id=job_id, user_id=user_id
+                )
                 raise
 
         # /api/content로 결과 전송
         await _post_content(
             job_id=job_id,
-            upload_channel_id=req.uploadChannels.id,
-            user_id=req.userId,
+            upload_channel_id=upload_channel.id,
+            user_id=user_id,
             title=title,
             body=body_replaced,
             generation_type=generation_type,
@@ -152,13 +189,19 @@ class WriteService:
             product=chosen_product,
         )
 
-        await _log("INFO", "write 프로세스 완료", job_id=job_id)
+        await _log("INFO", "write 프로세스 완료", job_id=job_id, user_id=user_id)
         return WriteResponse(
             jobId=job_id,
             keyword=keyword,
             product_title=chosen_product.title,
             link=link_out,
         )
+
+
+def _first_channel(upload_channels: list[UploadChannelSettings]) -> UploadChannelSettings:
+    if not upload_channels:
+        raise ValueError("uploadChannels 리스트가 비어 있습니다.")
+    return upload_channels[0]
 
 
 def _resolve_platform(ch: UploadChannelSettings) -> str:
@@ -177,14 +220,41 @@ def _build_redirect_url(job_id: str) -> str:
     return f"{host}/redirect?id={job_id}"
 
 
-def _to_upload_request(req: WriteRequest, title: str, body: str, keyword: str) -> UploadRequest:
+def _to_upload_request(
+    req: WriteRequest,
+    upload_channel: UploadChannelSettings,
+    title: str,
+    body: str,
+    keyword: str,
+) -> UploadRequest:
+    user_id = _resolve_user_id(req)
     return UploadRequest(
-        userId=req.userId,
+        userId=user_id,
         jobId=req.jobId,
         title=title,
         body=body,
         keyword=keyword,
-        uploadChannels=req.uploadChannels,
+        **_upload_channel_kwargs(upload_channel),
+    )
+
+
+def _to_upload_request_from_state(
+    state: dict[str, Any], title: str, body: str, keyword: str
+) -> UploadRequest:
+    upload_channel = state.get("upload_channel")
+    if upload_channel is None:
+        raise ValueError("upload_channel 정보가 없습니다.")
+    job_id = state.get("job_id")
+    if not job_id:
+        raise ValueError("job_id가 필요합니다.")
+    user_id = _state_user_id(state)
+    return UploadRequest(
+        userId=user_id,
+        jobId=job_id,
+        title=title,
+        body=body,
+        keyword=keyword,
+        **_upload_channel_kwargs(upload_channel),
     )
 
 
@@ -201,13 +271,15 @@ async def _post_content(
     keyword: str,
     product: SsadaguProduct,
 ) -> None:
+    gen_type_upper = (generation_type or "").upper()
+    status = "APPROVED" if gen_type_upper == "AUTO" else "PENDING"
     payload = {
         "jobId": job_id,
         "uploadChannelId": upload_channel_id,
         "userId": user_id,
         "title": title,
         "body": body,
-        "status": "PENDING",
+        "status": status,
         "generationType": generation_type,
         "link": link,
         "keyword": keyword,
@@ -216,7 +288,7 @@ async def _post_content(
             "link": str(product.product_link),
             "thumbnail": str(product.thumbnail_link or ""),
             "price": product.price or 0,
-            "category": "",
+            "category": "0",
         },
     }
     base = config.get_log_endpoint()
@@ -227,10 +299,12 @@ async def _post_content(
         async with httpx.AsyncClient() as client:
             await client.post(url, json=payload, timeout=config.get_log_timeout())
     except Exception:
-        await _log("WARN", "컨텐츠 전송 실패", sub=url, job_id=job_id)
+        await _log("WARN", "컨텐츠 전송 실패", sub=url, job_id=job_id, user_id=user_id)
 
 
-async def _log(level: str, message: str, *, sub: str = "", job_id: str = "") -> None:
+async def _log(
+    level: str, message: str, *, sub: str = "", job_id: str = "", user_id: int = 1
+) -> None:
     try:
         await async_send_log(
             level=level,
@@ -238,6 +312,49 @@ async def _log(level: str, message: str, *, sub: str = "", job_id: str = "") -> 
             submessage=sub,
             logged_process="write",
             job_id=job_id,
+            user_id=user_id,
         )
     except Exception:
         return
+
+
+def _resolve_user_id(req: WriteRequest) -> int:
+    """요청에서 사용자 ID를 추출한다."""
+    try:
+        llm_user = getattr(req.llmChannel, "userId", None)  # type: ignore[attr-defined]
+        if llm_user:
+            return llm_user
+    except Exception:
+        pass
+    if getattr(req, "userId", None):
+        return req.userId
+    return 1
+
+
+def _state_user_id(state: dict[str, Any]) -> int:
+    """그래프 상태에서 사용자 ID를 추출한다."""
+    if state.get("user_id"):
+        return state["user_id"]
+    llm_setting = state.get("llm_setting")
+    try:
+        candidate = getattr(llm_setting, "userId", None) or llm_setting.get("userId")  # type: ignore[union-attr]
+        if candidate:
+            return candidate
+    except Exception:
+        pass
+    return 1
+
+
+def _upload_channel_kwargs(upload_channel: UploadChannelSettings) -> dict[str, Any]:
+    """UploadRequest 생성 시 채널 정보를 납작하게 펼친다."""
+    return {
+        "channelName": upload_channel.name,
+        "naver_login_id": getattr(upload_channel, "naver_login_id", None)
+        or getattr(upload_channel, "apiKey", None),
+        "naver_login_pw": getattr(upload_channel, "naver_login_pw", None),
+        "naver_blog_id": getattr(upload_channel, "naver_blog_id", None),
+        "x_consumer_key": getattr(upload_channel, "x_consumer_key", None),
+        "x_consumer_secret": getattr(upload_channel, "x_consumer_secret", None),
+        "x_access_token": getattr(upload_channel, "x_access_token", None),
+        "x_access_token_secret": getattr(upload_channel, "x_access_token_secret", None),
+    }

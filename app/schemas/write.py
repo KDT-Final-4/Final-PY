@@ -12,9 +12,13 @@ class WriteRequest(BaseModel):
     """글 작성 요청."""
 
     userId: int = Field(1, description="사용자 ID (기본 1)")
-    llmSettings: LlmSetting
-    uploadChannels: UploadChannelSettings
-    keyword: str | None = Field(None, description="검색 키워드 (없으면 트렌드에서 생성)")
+    llmChannel: LlmSetting
+    uploadChannels: list[UploadChannelSettings] = Field(
+        ..., min_length=1, description="업로드 채널 리스트(최소 1개)"
+    )
+    keyword: str | None = Field(
+        None, description="검색 키워드 (없으면 트렌드에서 생성)"
+    )
     jobId: str = Field(..., description="작업 ID")
 
 

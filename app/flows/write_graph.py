@@ -34,7 +34,9 @@ def build_write_graph(
     graph = StateGraph(dict)
 
     @traceable(run_type="tool")
-    async def log(level: str, msg: str, sub: str = "", job_id: str = ""):
+    async def log(
+        level: str, msg: str, sub: str = "", job_id: str = "", user_id: int = 1
+    ):
         try:
             await async_send_log(
                 level=level,
@@ -42,6 +44,7 @@ def build_write_graph(
                 submessage=sub,
                 logged_process="write",
                 job_id=job_id,
+                user_id=user_id,
             )
         except Exception:
             return
@@ -49,19 +52,23 @@ def build_write_graph(
     @traceable(run_type="chain")
     async def prepare_keyword(state: Dict[str, Any]) -> Dict[str, Any]:
         job_id = state.get("job_id", "")
+        user_id = _extract_user_id_from_state(state)
         keyword = state.get("keyword")
+
         if keyword:
-            await log("INFO", "키워드 입력 사용", keyword, job_id)
-            return state
-        trends = await services.trends.fetch_keywords(limit=20, headless=True)
-        if not trends:
-            raise RuntimeError("트렌드 키워드 수집 실패")
+            await log("INFO", "키워드 입력 사용", keyword, job_id, user_id)
+            trends: list[str] = [keyword]
+        else:
+            trends = await services.trends.fetch_keywords(limit=20, headless=True)
+            if not trends:
+                raise RuntimeError("트렌드 키워드 수집 실패")
+
         refined = await services.keywords.refine(
             trends, llm_setting=state["llm_setting"]
         )
-        keyword = refined.get("real_keyword") or refined.get("keyword") or trends[0]
-        await log("INFO", "트렌드 기반 키워드 선택", keyword, job_id)
-        state["keyword"] = keyword
+        keyword_out = refined.get("real_keyword") or refined.get("keyword") or trends[0]
+        await log("INFO", "검색 키워드 확정", keyword_out, job_id, user_id)
+        state["keyword"] = keyword_out
         return state
 
     @traceable(run_type="chain")
@@ -84,13 +91,14 @@ def build_write_graph(
     @traceable(run_type="chain")
     async def evaluate(state: Dict[str, Any]) -> Dict[str, Any]:
         job_id = state.get("job_id", "")
+        user_id = _extract_user_id_from_state(state)
         keyword = state["keyword"]
         product: SsadaguProduct = state["product"]
         rel = await services.relevance.evaluate(
             keyword, product, llm_setting=state["llm_setting"]
         )
         score = float(rel.get("score", 0.0))
-        await log("INFO", "연관도 평가", f"score={score}", job_id)
+        await log("INFO", "연관도 평가", f"score={score}", job_id, user_id)
         state["relevance_score"] = score
         return state
 
@@ -141,7 +149,7 @@ def build_write_graph(
         await _post_content(
             job_id=state["job_id"],
             upload_channel_id=state["upload_channel"].id,
-            user_id=state["user_id"],
+            user_id=_extract_user_id_from_state(state),
             title=state["title"],
             body=state["body"],
             generation_type=state["generation_type"],
@@ -158,7 +166,12 @@ def build_write_graph(
     @traceable(run_type="chain")
     async def fail(state: Dict[str, Any]) -> Dict[str, Any]:
         job_id = state.get("job_id", "")
-        await log("ERROR", "연관된 상품을 찾지 못했습니다.", job_id=job_id)
+        await log(
+            "ERROR",
+            "연관된 상품을 찾지 못했습니다.",
+            job_id=job_id,
+            user_id=_extract_user_id_from_state(state),
+        )
         raise RuntimeError("연관된 상품을 찾지 못했습니다.")
 
     graph.add_node("prepare_keyword", prepare_keyword)
@@ -218,13 +231,15 @@ async def _post_content(
     keyword: str,
     product: SsadaguProduct,
 ) -> None:
+    gen_type_upper = (generation_type or "").upper()
+    status = "APPROVED" if gen_type_upper == "AUTO" else "PENDING"
     payload = {
         "jobId": job_id,
         "uploadChannelId": upload_channel_id,
         "userId": user_id,
         "title": title,
         "body": body,
-        "status": "PENDING",
+        "status": status,
         "generationType": generation_type,
         "link": link,
         "keyword": keyword,
@@ -233,7 +248,7 @@ async def _post_content(
             "link": str(product.product_link),
             "thumbnail": str(product.thumbnail_link or ""),
             "price": product.price or 0,
-            "category": "",
+            "category": "0",
         },
     }
     base = config.get_log_endpoint()
@@ -251,6 +266,21 @@ async def _post_content(
                 submessage=url,
                 logged_process="write",
                 job_id=job_id,
+                user_id=user_id,
             )
         except Exception:
             return
+
+
+def _extract_user_id_from_state(state: Dict[str, Any]) -> int:
+    """그래프 상태에서 user_id를 최대한 추출한다."""
+    if state.get("user_id"):
+        return state["user_id"]
+    llm_setting = state.get("llm_setting")
+    try:
+        candidate = getattr(llm_setting, "userId", None) or llm_setting.get("userId")  # type: ignore[union-attr]
+        if candidate:
+            return candidate
+    except Exception:
+        pass
+    return 1
