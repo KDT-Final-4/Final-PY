@@ -55,22 +55,12 @@ class UploadService:
         return UploadResponse(jobId=job_id, link=link, channel=channel)
 
     def _resolve_channel(self, payload: UploadRequest) -> str:
-        ch = payload.uploadChannels
-        return (ch.name or "unknown").strip().lower()
+        return (payload.channelName or "unknown").strip().lower()
 
     async def _upload_naver(self, payload: UploadRequest) -> str:
-        ch = payload.uploadChannels
-        login_id = (
-            getattr(ch, "naver_login_id", None)
-            or ch.apiKey
-            or config.get_naver_login_id()
-        )
-        login_pw = getattr(ch, "naver_login_pw", None) or config.get_naver_login_pw()
-        blog_id = (
-            getattr(ch, "naver_blog_id", None)
-            or config.get_naver_blog_id()
-            or login_id
-        )
+        login_id = payload.naver_login_id or config.get_naver_login_id()
+        login_pw = payload.naver_login_pw or config.get_naver_login_pw()
+        blog_id = payload.naver_blog_id or config.get_naver_blog_id() or login_id
 
         if not login_id or not login_pw:
             raise ValueError("네이버 로그인 정보가 없습니다.")
@@ -87,12 +77,11 @@ class UploadService:
         return result.url
 
     async def _upload_x(self, payload: UploadRequest) -> str:
-        ch = payload.uploadChannels
         return await self.x_service.post_async(
             title=payload.title,
             content=payload.body,
-            consumer_key=getattr(ch, "x_consumer_key", None),
-            consumer_secret=getattr(ch, "x_consumer_secret", None),
-            access_token=getattr(ch, "x_access_token", None),
-            access_token_secret=getattr(ch, "x_access_token_secret", None),
+            consumer_key=payload.x_consumer_key,
+            consumer_secret=payload.x_consumer_secret,
+            access_token=payload.x_access_token,
+            access_token_secret=payload.x_access_token_secret,
         )

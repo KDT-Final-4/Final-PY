@@ -40,7 +40,17 @@ class UploadRequest(BaseModel):
     title: str = Field(..., description="제목")
     body: str = Field(..., description="본문")
     keyword: str = Field(..., description="키워드")
-    uploadChannels: UploadChannelSettings
+    channelName: str = Field(..., description="업로드 채널 이름 (예: NAVER, X)")
+
+    # 선택: 채널별 자격/옵션(없으면 환경 변수 등으로 폴백)
+    naver_login_id: str | None = Field(None, description="네이버 로그인 ID")
+    naver_login_pw: str | None = Field(None, description="네이버 로그인 PW")
+    naver_blog_id: str | None = Field(None, description="네이버 블로그 ID")
+
+    x_consumer_key: str | None = Field(None, description="X consumer key")
+    x_consumer_secret: str | None = Field(None, description="X consumer secret")
+    x_access_token: str | None = Field(None, description="X access token")
+    x_access_token_secret: str | None = Field(None, description="X access token secret")
 
 
 class UploadResponse(BaseModel):

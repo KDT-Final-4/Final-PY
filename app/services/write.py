@@ -89,8 +89,18 @@ class WriteService:
         upload_channel = _first_channel(req.uploadChannels)
 
         keyword = req.keyword
-        # 1. 키워드 준비
-        if not keyword:
+        # 1. 키워드 준비 (입력 키워드도 LLM refine 후 사용)
+        if keyword:
+            refined = await self.keywords.refine([keyword], llm_setting=req.llmChannel)
+            keyword = refined.get("real_keyword") or refined.get("keyword") or keyword
+            await _log(
+                "INFO",
+                "입력 키워드 변환",
+                sub=keyword,
+                job_id=job_id,
+                user_id=user_id,
+            )
+        else:
             keywords = await self.trends.fetch_keywords(limit=20, headless=True)
             if not keywords:
                 raise RuntimeError("트렌드 키워드 수집 실패")
@@ -224,7 +234,7 @@ def _to_upload_request(
         title=title,
         body=body,
         keyword=keyword,
-        uploadChannels=upload_channel,
+        **_upload_channel_kwargs(upload_channel),
     )
 
 
@@ -244,7 +254,7 @@ def _to_upload_request_from_state(
         title=title,
         body=body,
         keyword=keyword,
-        uploadChannels=upload_channel,
+        **_upload_channel_kwargs(upload_channel),
     )
 
 
@@ -261,13 +271,15 @@ async def _post_content(
     keyword: str,
     product: SsadaguProduct,
 ) -> None:
+    gen_type_upper = (generation_type or "").upper()
+    status = "APPROVED" if gen_type_upper == "AUTO" else "PENDING"
     payload = {
         "jobId": job_id,
         "uploadChannelId": upload_channel_id,
         "userId": user_id,
         "title": title,
         "body": body,
-        "status": "PENDING",
+        "status": status,
         "generationType": generation_type,
         "link": link,
         "keyword": keyword,
@@ -276,7 +288,7 @@ async def _post_content(
             "link": str(product.product_link),
             "thumbnail": str(product.thumbnail_link or ""),
             "price": product.price or 0,
-            "category": "",
+            "category": "0",
         },
     }
     base = config.get_log_endpoint()
@@ -331,3 +343,18 @@ def _state_user_id(state: dict[str, Any]) -> int:
     except Exception:
         pass
     return 1
+
+
+def _upload_channel_kwargs(upload_channel: UploadChannelSettings) -> dict[str, Any]:
+    """UploadRequest 생성 시 채널 정보를 납작하게 펼친다."""
+    return {
+        "channelName": upload_channel.name,
+        "naver_login_id": getattr(upload_channel, "naver_login_id", None)
+        or getattr(upload_channel, "apiKey", None),
+        "naver_login_pw": getattr(upload_channel, "naver_login_pw", None),
+        "naver_blog_id": getattr(upload_channel, "naver_blog_id", None),
+        "x_consumer_key": getattr(upload_channel, "x_consumer_key", None),
+        "x_consumer_secret": getattr(upload_channel, "x_consumer_secret", None),
+        "x_access_token": getattr(upload_channel, "x_access_token", None),
+        "x_access_token_secret": getattr(upload_channel, "x_access_token_secret", None),
+    }

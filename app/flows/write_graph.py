@@ -54,18 +54,21 @@ def build_write_graph(
         job_id = state.get("job_id", "")
         user_id = _extract_user_id_from_state(state)
         keyword = state.get("keyword")
+
         if keyword:
             await log("INFO", "키워드 입력 사용", keyword, job_id, user_id)
-            return state
-        trends = await services.trends.fetch_keywords(limit=20, headless=True)
-        if not trends:
-            raise RuntimeError("트렌드 키워드 수집 실패")
+            trends: list[str] = [keyword]
+        else:
+            trends = await services.trends.fetch_keywords(limit=20, headless=True)
+            if not trends:
+                raise RuntimeError("트렌드 키워드 수집 실패")
+
         refined = await services.keywords.refine(
             trends, llm_setting=state["llm_setting"]
         )
-        keyword = refined.get("real_keyword") or refined.get("keyword") or trends[0]
-        await log("INFO", "트렌드 기반 키워드 선택", keyword, job_id, user_id)
-        state["keyword"] = keyword
+        keyword_out = refined.get("real_keyword") or refined.get("keyword") or trends[0]
+        await log("INFO", "검색 키워드 확정", keyword_out, job_id, user_id)
+        state["keyword"] = keyword_out
         return state
 
     @traceable(run_type="chain")
@@ -227,14 +230,16 @@ async def _post_content(
     link: str,
     keyword: str,
     product: SsadaguProduct,
-    ) -> None:
+) -> None:
+    gen_type_upper = (generation_type or "").upper()
+    status = "APPROVED" if gen_type_upper == "AUTO" else "PENDING"
     payload = {
         "jobId": job_id,
         "uploadChannelId": upload_channel_id,
         "userId": user_id,
         "title": title,
         "body": body,
-        "status": "PENDING",
+        "status": status,
         "generationType": generation_type,
         "link": link,
         "keyword": keyword,
@@ -243,7 +248,7 @@ async def _post_content(
             "link": str(product.product_link),
             "thumbnail": str(product.thumbnail_link or ""),
             "price": product.price or 0,
-            "category": "",
+            "category": "0",
         },
     }
     base = config.get_log_endpoint()
