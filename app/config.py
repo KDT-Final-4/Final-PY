@@ -26,6 +26,9 @@ X_CONSUMER_KEY = "X_CONSUMER_KEY"
 X_CONSUMER_SECRET = "X_CONSUMER_SECRET"
 X_ACCESS_TOKEN = "X_ACCESS_TOKEN"
 X_ACCESS_TOKEN_SECRET = "X_ACCESS_TOKEN_SECRET"
+NAVER_LOGIN_ID_KEY = "NAVER_LOGIN_ID"
+NAVER_LOGIN_PW_KEY = "NAVER_LOGIN_PW"
+NAVER_BLOG_ID_KEY = "NAVER_BLOG_ID"
 
 
 def _get_required_str(name: str) -> str:
@@ -33,6 +36,13 @@ def _get_required_str(name: str) -> str:
     if value is None or value == "":
         raise ValueError(f"{name} 환경 변수가 필요합니다.")
     return value
+
+
+def _get_optional_str(name: str) -> str | None:
+    raw = os.getenv(name)
+    if raw is None or raw == "":
+        return None
+    return raw
 
 
 def _get_float_env(name: str, default: float) -> float:
@@ -155,6 +165,28 @@ def get_x_access_token_secret(override: Optional[str] = None) -> str:
     return override or _get_required_str(X_ACCESS_TOKEN_SECRET)
 
 
+# ---- NAVER 로그인/블로그 설정 ----
+def get_naver_login_id(override: Optional[str] = None) -> Optional[str]:
+    """네이버 로그인 ID (선택). override 우선, 없으면 NAVER_LOGIN_ID 사용."""
+    if override is not None and override != "":
+        return override
+    return _get_optional_str(NAVER_LOGIN_ID_KEY)
+
+
+def get_naver_login_pw(override: Optional[str] = None) -> Optional[str]:
+    """네이버 로그인 PW (선택). override 우선, 없으면 NAVER_LOGIN_PW 사용."""
+    if override is not None and override != "":
+        return override
+    return _get_optional_str(NAVER_LOGIN_PW_KEY)
+
+
+def get_naver_blog_id(override: Optional[str] = None) -> Optional[str]:
+    """네이버 블로그 ID (선택). override 우선, 없으면 NAVER_BLOG_ID 사용."""
+    if override is not None and override != "":
+        return override
+    return _get_optional_str(NAVER_BLOG_ID_KEY)
+
+
 __all__ = [
     "LOG_ENDPOINT_KEY",
     "LOG_SOURCE_KEY",
@@ -166,6 +198,9 @@ __all__ = [
     "X_CONSUMER_SECRET",
     "X_ACCESS_TOKEN",
     "X_ACCESS_TOKEN_SECRET",
+    "NAVER_LOGIN_ID_KEY",
+    "NAVER_LOGIN_PW_KEY",
+    "NAVER_BLOG_ID_KEY",
     "get_log_endpoint",
     "get_log_source",
     "get_log_timeout",
@@ -176,4 +211,7 @@ __all__ = [
     "get_x_consumer_secret",
     "get_x_access_token",
     "get_x_access_token_secret",
+    "get_naver_login_id",
+    "get_naver_login_pw",
+    "get_naver_blog_id",
 ]

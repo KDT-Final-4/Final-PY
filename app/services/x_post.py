@@ -31,10 +31,11 @@ class XPostService:
         access_token: Optional[str] = None,
         access_token_secret: Optional[str] = None,
     ):
-        self.consumer_key = consumer_key or config.get_x_consumer_key()
-        self.consumer_secret = consumer_secret or config.get_x_consumer_secret()
-        self.access_token = access_token or config.get_x_access_token()
-        self.access_token_secret = access_token_secret or config.get_x_access_token_secret()
+        # None으로 두고, 실제 호출 시 요청값 → 환경변수 순으로 폴백한다.
+        self.consumer_key = consumer_key
+        self.consumer_secret = consumer_secret
+        self.access_token = access_token
+        self.access_token_secret = access_token_secret
 
     def post(
         self,
@@ -49,10 +50,10 @@ class XPostService:
         """트윗을 게시하고 URL을 반환한다 (v2 create_tweet)."""
         status = _build_status(title, content)
 
-        ck = consumer_key or self.consumer_key
-        cs = consumer_secret or self.consumer_secret
-        at = access_token or self.access_token
-        ats = access_token_secret or self.access_token_secret
+        ck = consumer_key or self.consumer_key or config.get_x_consumer_key()
+        cs = consumer_secret or self.consumer_secret or config.get_x_consumer_secret()
+        at = access_token or self.access_token or config.get_x_access_token()
+        ats = access_token_secret or self.access_token_secret or config.get_x_access_token_secret()
 
         # tweepy Client with OAuth1 user context
         client = tweepy.Client(

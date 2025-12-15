@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app import config
 from app.logs import async_send_log
 from app.schemas.upload import UploadRequest, UploadResponse
 from app.services.naver_blog import NaverBlogService
@@ -59,9 +60,17 @@ class UploadService:
 
     async def _upload_naver(self, payload: UploadRequest) -> str:
         ch = payload.uploadChannels
-        login_id = getattr(ch, "naver_login_id", None) or ch.apiKey
-        login_pw = getattr(ch, "naver_login_pw", None)
-        blog_id = getattr(ch, "naver_blog_id", None) or login_id
+        login_id = (
+            getattr(ch, "naver_login_id", None)
+            or ch.apiKey
+            or config.get_naver_login_id()
+        )
+        login_pw = getattr(ch, "naver_login_pw", None) or config.get_naver_login_pw()
+        blog_id = (
+            getattr(ch, "naver_blog_id", None)
+            or config.get_naver_blog_id()
+            or login_id
+        )
 
         if not login_id or not login_pw:
             raise ValueError("네이버 로그인 정보가 없습니다.")
