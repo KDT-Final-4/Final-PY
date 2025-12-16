@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 
 from app.schemas.llm import LLMChatRequest, LLMChatResponse, LlmSetting
 from app.services.llm import LLMService
+from app.services.text_cleaner import try_repair_json
 
 router = APIRouter(prefix="/llm", tags=["llm"])
 
@@ -30,4 +31,5 @@ async def chat(
         temperature=temperature,
         api_key=api_key,
     )
-    return LLMChatResponse(answer=answer)
+    cleaned = try_repair_json(answer) or answer
+    return LLMChatResponse(answer=cleaned)

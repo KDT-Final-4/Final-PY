@@ -10,6 +10,7 @@ from app.prompts.promo import get_platform_guide
 from app.schemas.llm import LlmSetting
 from app.schemas.products import SsadaguProduct
 from app.services.llm import LLMService
+from app.services.text_cleaner import try_repair_json
 
 
 class PromoService:
@@ -71,14 +72,15 @@ class PromoService:
             temperature=llm_setting.temperature if llm_setting else None,
             api_key=llm_setting.apiKey if llm_setting else None,
         )
+        cleaned_answer = try_repair_json(answer) or answer
 
         try:
-            parsed = json.loads(answer)
+            parsed = json.loads(cleaned_answer)
             title = parsed.get("title") or ""
             body = parsed.get("body") or ""
         except Exception:
             # LLM이 JSON 형식이 아닐 경우 대비하여 fallback
-            title, body = "", answer.strip()
+            title, body = "", cleaned_answer.strip()
 
         await send_log_async_safe(
             message="프로모션 생성 완료",

@@ -10,6 +10,7 @@ from app.services.x_post import XPostService
 from app.services.ssadagu import SsadaguService
 from app.services.trends import GoogleTrendsService
 from app.services.write import WriteService
+from app.services.text_cleaner import try_repair_json
 
 __all__ = [
     "ContentService",
@@ -22,4 +23,5 @@ __all__ = [
     "SsadaguService",
     "GoogleTrendsService",
     "WriteService",
+    "try_repair_json",
 ]
