@@ -9,6 +9,7 @@ from app.logs import async_send_log
 from app.prompts.keywords import get_system_prompt
 from app.schemas.llm import LlmSetting
 from app.services.llm import LLMService
+from app.services.text_cleaner import try_repair_json
 
 
 class KeywordService:
@@ -47,12 +48,13 @@ class KeywordService:
             temperature=llm_setting.temperature if llm_setting else None,
             api_key=llm_setting.apiKey if llm_setting else None,
         )
+        cleaned_answer = try_repair_json(answer) or answer
 
         default_keyword = trends[0] if trends else ""
         real_keyword = default_keyword
-        reason = answer.strip()
+        reason = cleaned_answer.strip()
         try:
-            parsed = json.loads(answer)
+            parsed = json.loads(cleaned_answer)
             real_keyword = parsed.get("real_keyword") or parsed.get("keyword") or real_keyword
             reason = parsed.get("reason", reason) or reason
             keyword_out = parsed.get("keyword", default_keyword) or default_keyword

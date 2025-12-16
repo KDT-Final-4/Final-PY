@@ -10,6 +10,7 @@ from app.prompts.relevance import get_system_prompt
 from app.schemas.llm import LlmSetting
 from app.schemas.products import SsadaguProduct
 from app.services.llm import LLMService
+from app.services.text_cleaner import try_repair_json
 
 
 class RelevanceService:
@@ -62,11 +63,12 @@ class RelevanceService:
             temperature=llm_setting.temperature if llm_setting else None,
             api_key=llm_setting.apiKey if llm_setting else None,
         )
+        cleaned_answer = try_repair_json(answer) or answer
 
         score = 0.0
-        reason = answer.strip()
+        reason = cleaned_answer.strip()
         try:
-            parsed = json.loads(answer)
+            parsed = json.loads(cleaned_answer)
             score = float(parsed.get("score", 0.0))
             reason = str(parsed.get("reason", "")).strip() or reason
         except Exception:
