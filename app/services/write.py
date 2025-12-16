@@ -109,7 +109,11 @@ class WriteService:
                 refined.get("real_keyword") or refined.get("keyword") or keywords[0]
             )
             await _log(
-                "INFO", "트렌드 기반 키워드 선택", sub=keyword, job_id=job_id, user_id=user_id
+                "INFO",
+                "트렌드 기반 키워드 선택",
+                sub=keyword,
+                job_id=job_id,
+                user_id=user_id,
             )
 
         # 2~4. 상품 검색 및 연관도 확인 (최대 5회)
@@ -198,7 +202,9 @@ class WriteService:
         )
 
 
-def _first_channel(upload_channels: list[UploadChannelSettings]) -> UploadChannelSettings:
+def _first_channel(
+    upload_channels: list[UploadChannelSettings],
+) -> UploadChannelSettings:
     if not upload_channels:
         raise ValueError("uploadChannels 리스트가 비어 있습니다.")
     return upload_channels[0]
@@ -217,7 +223,7 @@ def _build_redirect_url(job_id: str) -> str:
     base = config.get_log_endpoint()
     parsed = urlparse(base)
     host = f"{parsed.scheme}://{parsed.netloc}"
-    return f"{host}/redirect?id={job_id}"
+    return f"{host}/api/link?jobId={job_id}"
 
 
 def _to_upload_request(
