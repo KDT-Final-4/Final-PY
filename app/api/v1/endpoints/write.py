@@ -22,10 +22,12 @@ async def _run_write(service: WriteService, body: WriteRequest) -> None:
             user_id = getattr(body.llmChannel, "userId", None) or body.userId
         except Exception:
             user_id = body.userId
+        keyword = getattr(body, "keyword", None)
+        submessage = f"keyword={keyword} | {exc}" if keyword else str(exc)
         await async_send_log(
             level="ERROR",
             message="write 프로세스 실패",
-            submessage=str(exc),
+            submessage=submessage,
             logged_process="write",
             job_id=body.jobId,
             user_id=user_id,

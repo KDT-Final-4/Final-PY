@@ -24,8 +24,18 @@ else:
     _import_error = None
 
 
+def _sub_with_keyword(keyword: str | None, sub: str = "") -> str:
+    parts = []
+    if keyword:
+        parts.append(f"keyword={keyword}")
+    if sub:
+        if not keyword or sub != keyword:
+            parts.append(sub)
+    return " | ".join(parts)
+
+
 def build_write_graph(
-    services, *, max_retries: int = 5, relevance_threshold: float = 0.8
+    services, *, max_retries: int = 5, relevance_threshold: float = 0.7
 ):
     """LangGraph로 노드 흐름을 구성해 컴파일된 그래프를 반환한다."""
     if _import_error:
@@ -35,13 +45,19 @@ def build_write_graph(
 
     @traceable(run_type="tool")
     async def log(
-        level: str, msg: str, sub: str = "", job_id: str = "", user_id: int = 1
+        level: str,
+        msg: str,
+        sub: str = "",
+        job_id: str = "",
+        user_id: int = 1,
+        keyword: str | None = None,
     ):
+        submessage = _sub_with_keyword(keyword, sub)
         try:
             await async_send_log(
                 level=level,
                 message=msg,
-                submessage=sub,
+                submessage=submessage,
                 logged_process="write",
                 job_id=job_id,
                 user_id=user_id,
@@ -56,7 +72,14 @@ def build_write_graph(
         keyword = state.get("keyword")
 
         if keyword:
-            await log("INFO", "키워드 입력 사용", keyword, job_id, user_id)
+            await log(
+                "INFO",
+                "키워드 입력 사용",
+                sub=keyword,
+                job_id=job_id,
+                user_id=user_id,
+                keyword=keyword,
+            )
             trends: list[str] = [keyword]
         else:
             trends = await services.trends.fetch_keywords(limit=20, headless=True)
@@ -67,7 +90,14 @@ def build_write_graph(
             trends, llm_setting=state["llm_setting"]
         )
         keyword_out = refined.get("real_keyword") or refined.get("keyword") or trends[0]
-        await log("INFO", "검색 키워드 확정", keyword_out, job_id, user_id)
+        await log(
+            "INFO",
+            "검색 키워드 확정",
+            sub=keyword_out,
+            job_id=job_id,
+            user_id=user_id,
+            keyword=keyword_out,
+        )
         state["keyword"] = keyword_out
         return state
 
@@ -98,7 +128,14 @@ def build_write_graph(
             keyword, product, llm_setting=state["llm_setting"]
         )
         score = float(rel.get("score", 0.0))
-        await log("INFO", "연관도 평가", f"score={score}", job_id, user_id)
+        await log(
+            "INFO",
+            "연관도 평가",
+            sub=f"score={score}",
+            job_id=job_id,
+            user_id=user_id,
+            keyword=keyword,
+        )
         state["relevance_score"] = score
         return state
 
@@ -171,6 +208,7 @@ def build_write_graph(
             "연관된 상품을 찾지 못했습니다.",
             job_id=job_id,
             user_id=_extract_user_id_from_state(state),
+            keyword=state.get("keyword"),
         )
         raise RuntimeError("연관된 상품을 찾지 못했습니다.")
 
@@ -263,7 +301,7 @@ async def _post_content(
             await async_send_log(
                 level="WARN",
                 message="컨텐츠 전송 실패",
-                submessage=url,
+                submessage=_sub_with_keyword(keyword, url),
                 logged_process="write",
                 job_id=job_id,
                 user_id=user_id,

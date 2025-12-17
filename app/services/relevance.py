@@ -83,7 +83,7 @@ class RelevanceService:
 
         await send_log_async_safe(
             message="키워드-상품 연관도 평가 완료",
-            submessage=f"keyword={keyword}, score={score}",
+            submessage=f"keyword={keyword} | score={score} | reason={reason}",
             logged_process="relevance",
         )
         return {

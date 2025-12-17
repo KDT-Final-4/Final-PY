@@ -20,8 +20,8 @@ class UploadChannelSettings(BaseModel):
     updatedAt: datetime
 
     # 채널별 옵션 (필요한 것만 사용)
-    naver_login_id: str | None = Field(None, description="네이버 블로그 로그인 ID")
-    naver_login_pw: str | None = Field(None, description="네이버 블로그 로그인 PW")
+    client_id: str | None = Field(None, description="네이버 블로그 로그인 ID")
+    client_pw: str | None = Field(None, description="네이버 블로그 로그인 PW")
     naver_blog_id: str | None = Field(
         None, description="블로그 ID (미지정 시 login_id 사용)"
     )
@@ -43,8 +43,8 @@ class UploadRequest(BaseModel):
     channelName: str = Field(..., description="업로드 채널 이름 (예: NAVER, X)")
 
     # 선택: 채널별 자격/옵션(없으면 환경 변수 등으로 폴백)
-    naver_login_id: str | None = Field(None, description="네이버 로그인 ID")
-    naver_login_pw: str | None = Field(None, description="네이버 로그인 PW")
+    client_id: str | None = Field(None, description="네이버 로그인 ID")
+    client_pw: str | None = Field(None, description="네이버 로그인 PW")
     naver_blog_id: str | None = Field(None, description="네이버 블로그 ID")
 
     x_consumer_key: str | None = Field(None, description="X consumer key")

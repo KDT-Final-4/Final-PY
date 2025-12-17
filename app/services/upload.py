@@ -58,8 +58,9 @@ class UploadService:
         return (payload.channelName or "unknown").strip().lower()
 
     async def _upload_naver(self, payload: UploadRequest) -> str:
-        login_id = payload.naver_login_id or config.get_naver_login_id()
-        login_pw = payload.naver_login_pw or config.get_naver_login_pw()
+        print(payload.client_id)
+        login_id = payload.client_id or config.get_naver_login_id()
+        login_pw = payload.client_pw or config.get_naver_login_pw()
         blog_id = payload.naver_blog_id or config.get_naver_blog_id() or login_id
 
         if not login_id or not login_pw:

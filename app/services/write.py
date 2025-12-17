@@ -85,10 +85,15 @@ class WriteService:
         """LangGraph 미사용 시 순차 실행."""
         job_id = req.jobId
         user_id = _resolve_user_id(req)
-        await _log("INFO", "write 프로세스 시작(순차)", job_id=job_id, user_id=user_id)
-        upload_channel = _first_channel(req.uploadChannels)
-
         keyword = req.keyword
+        await _log(
+            "INFO",
+            "write 프로세스 시작(순차)",
+            job_id=job_id,
+            user_id=user_id,
+            keyword=keyword,
+        )
+        upload_channel = _first_channel(req.uploadChannels)
         # 1. 키워드 준비 (입력 키워드도 LLM refine 후 사용)
         if keyword:
             refined = await self.keywords.refine([keyword], llm_setting=req.llmChannel)
@@ -99,6 +104,7 @@ class WriteService:
                 sub=keyword,
                 job_id=job_id,
                 user_id=user_id,
+                keyword=keyword,
             )
         else:
             keywords = await self.trends.fetch_keywords(limit=20, headless=True)
@@ -114,6 +120,7 @@ class WriteService:
                 sub=keyword,
                 job_id=job_id,
                 user_id=user_id,
+                keyword=keyword,
             )
 
         # 2~4. 상품 검색 및 연관도 확인 (최대 5회)
@@ -137,6 +144,7 @@ class WriteService:
                 sub=f"score={score}",
                 job_id=job_id,
                 user_id=user_id,
+                keyword=keyword,
             )
             if score >= RELEVANCE_THRESHOLD:
                 chosen_product = product
@@ -147,6 +155,7 @@ class WriteService:
                 "연관된 상품을 찾지 못했습니다.",
                 job_id=job_id,
                 user_id=user_id,
+                keyword=keyword,
             )
             raise RuntimeError("연관된 상품을 찾지 못했습니다.")
 
@@ -176,7 +185,12 @@ class WriteService:
                 link_out = upload_res.link
             except Exception as exc:
                 await _log(
-                    "ERROR", "업로드 실패", sub=str(exc), job_id=job_id, user_id=user_id
+                    "ERROR",
+                    "업로드 실패",
+                    sub=str(exc),
+                    job_id=job_id,
+                    user_id=user_id,
+                    keyword=keyword,
                 )
                 raise
 
@@ -193,7 +207,13 @@ class WriteService:
             product=chosen_product,
         )
 
-        await _log("INFO", "write 프로세스 완료", job_id=job_id, user_id=user_id)
+        await _log(
+            "INFO",
+            "write 프로세스 완료",
+            job_id=job_id,
+            user_id=user_id,
+            keyword=keyword,
+        )
         return WriteResponse(
             jobId=job_id,
             keyword=keyword,
@@ -305,17 +325,41 @@ async def _post_content(
         async with httpx.AsyncClient() as client:
             await client.post(url, json=payload, timeout=config.get_log_timeout())
     except Exception:
-        await _log("WARN", "컨텐츠 전송 실패", sub=url, job_id=job_id, user_id=user_id)
+        await _log(
+            "WARN",
+            "컨텐츠 전송 실패",
+            sub=url,
+            job_id=job_id,
+            user_id=user_id,
+            keyword=keyword,
+        )
+
+
+def _with_keyword(keyword: str | None, sub: str) -> str:
+    parts = []
+    if keyword:
+        parts.append(f"keyword={keyword}")
+    if sub:
+        if not keyword or sub != keyword:
+            parts.append(sub)
+    return " | ".join(parts)
 
 
 async def _log(
-    level: str, message: str, *, sub: str = "", job_id: str = "", user_id: int = 1
+    level: str,
+    message: str,
+    *,
+    sub: str = "",
+    job_id: str = "",
+    user_id: int = 1,
+    keyword: str | None = None,
 ) -> None:
+    submessage = _with_keyword(keyword, sub)
     try:
         await async_send_log(
             level=level,
             message=message,
-            submessage=sub,
+            submessage=submessage,
             logged_process="write",
             job_id=job_id,
             user_id=user_id,
