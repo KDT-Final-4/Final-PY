@@ -23,8 +23,9 @@ async def _post_trend_callback(payload: list[dict]) -> None:
     """콜백 서버(/api/trend)로 결과를 전송한다."""
     endpoint = config.get_log_trend_endpoint()
     timeout = config.get_log_timeout()
+    headers = config.build_internal_headers()
     async with httpx.AsyncClient() as client:
-        response = await client.post(endpoint, json=payload, timeout=timeout)
+        response = await client.post(endpoint, json=payload, timeout=timeout, headers=headers)
         response.raise_for_status()
 
 

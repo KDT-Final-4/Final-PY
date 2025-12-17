@@ -99,9 +99,15 @@ def send_log(
     timeout_val = config.get_log_timeout(timeout)
     close_client = client is None
     client = client or httpx.Client()
+    headers = config.build_internal_headers()
 
     try:
-        response = client.post(endpoint_url, json=payload, timeout=timeout_val)
+        response = client.post(
+            endpoint_url,
+            json=payload,
+            timeout=timeout_val,
+            headers=headers,
+        )
         response.raise_for_status()
         return response
     except httpx.HTTPError as exc:
@@ -164,9 +170,15 @@ async def async_send_log(
     timeout_val = config.get_log_timeout(timeout)
     close_client = client is None
     client = client or httpx.AsyncClient()
+    headers = config.build_internal_headers()
 
     try:
-        response = await client.post(endpoint_url, json=payload, timeout=timeout_val)
+        response = await client.post(
+            endpoint_url,
+            json=payload,
+            timeout=timeout_val,
+            headers=headers,
+        )
         response.raise_for_status()
         return response
     except httpx.HTTPError as exc:

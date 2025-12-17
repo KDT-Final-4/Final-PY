@@ -29,6 +29,8 @@ X_ACCESS_TOKEN_SECRET = "X_ACCESS_TOKEN_SECRET"
 NAVER_LOGIN_ID_KEY = "NAVER_LOGIN_ID"
 NAVER_LOGIN_PW_KEY = "NAVER_LOGIN_PW"
 NAVER_BLOG_ID_KEY = "NAVER_BLOG_ID"
+X_INTERNAL_TOKEN_KEY = "X_INTERNAL_TOKEN"
+INTERNAL_TOKEN_HEADER = "X-Internal-Token"
 
 
 def _get_required_str(name: str) -> str:
@@ -187,6 +189,23 @@ def get_naver_blog_id(override: Optional[str] = None) -> Optional[str]:
     return _get_optional_str(NAVER_BLOG_ID_KEY)
 
 
+# ---- 내부 토큰 헤더 ----
+def get_internal_token(override: Optional[str] = None) -> Optional[str]:
+    """내부 인증용 토큰. 설정되어 있으면 X-Internal-Token 헤더로 사용."""
+    if override is not None:
+        return override or None
+    return _get_optional_str(X_INTERNAL_TOKEN_KEY)
+
+
+def build_internal_headers(base: Optional[dict[str, str]] = None, *, token: Optional[str] = None) -> dict[str, str]:
+    """내부 요청에 공통으로 붙이는 헤더(X-Internal-Token)를 반환."""
+    headers: dict[str, str] = dict(base or {})
+    resolved_token = get_internal_token(token)
+    if resolved_token:
+        headers.setdefault(INTERNAL_TOKEN_HEADER, resolved_token)
+    return headers
+
+
 __all__ = [
     "LOG_ENDPOINT_KEY",
     "LOG_SOURCE_KEY",
@@ -201,6 +220,8 @@ __all__ = [
     "NAVER_LOGIN_ID_KEY",
     "NAVER_LOGIN_PW_KEY",
     "NAVER_BLOG_ID_KEY",
+    "X_INTERNAL_TOKEN_KEY",
+    "INTERNAL_TOKEN_HEADER",
     "get_log_endpoint",
     "get_log_source",
     "get_log_timeout",
@@ -214,4 +235,6 @@ __all__ = [
     "get_naver_login_id",
     "get_naver_login_pw",
     "get_naver_blog_id",
+    "get_internal_token",
+    "build_internal_headers",
 ]

@@ -27,8 +27,13 @@ async def _notify_content_link(payload: ContentLinkUpdate) -> None:
             if endpoint.endswith("/content/link")
             else f"{endpoint}/content/link"
         )
+        headers = config.build_internal_headers()
         async with httpx.AsyncClient() as client:
-            resp = await client.patch(url, json=payload.model_dump())
+            resp = await client.patch(
+                url,
+                json=payload.model_dump(),
+                headers=headers,
+            )
             resp.raise_for_status()
     except Exception as exc:  # pragma: no cover
         await async_send_log(

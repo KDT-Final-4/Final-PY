@@ -294,8 +294,14 @@ async def _post_content(
     host = f"{parsed.scheme}://{parsed.netloc}"
     url = f"{host}/api/content"
     try:
+        headers = config.build_internal_headers()
         async with httpx.AsyncClient() as client:
-            await client.post(url, json=payload, timeout=config.get_log_timeout())
+            await client.post(
+                url,
+                json=payload,
+                timeout=config.get_log_timeout(),
+                headers=headers,
+            )
     except Exception:
         try:
             await async_send_log(
