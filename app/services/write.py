@@ -173,7 +173,8 @@ class WriteService:
 
         link_out = ""
         generation_type = req.llmChannel.generationType
-        generation_type_upper = generation_type.upper() if generation_type else ""
+        content_generation_type = generation_type or ""
+        generation_type_upper = content_generation_type.upper()
 
         # 7. 업로드 및 컨텐츠 전송
         if generation_type_upper == "AUTO":
@@ -192,7 +193,9 @@ class WriteService:
                     user_id=user_id,
                     keyword=keyword,
                 )
-                raise
+                # 업로드 실패 시 MANUAL 플로우로 전환하여 글 저장만 진행
+                content_generation_type = "MANUAL"
+                generation_type_upper = content_generation_type.upper()
 
         # /api/content로 결과 전송
         await _post_content(
@@ -201,7 +204,7 @@ class WriteService:
             user_id=user_id,
             title=title,
             body=body_replaced,
-            generation_type=generation_type,
+            generation_type=content_generation_type,
             link=link_out if generation_type_upper == "AUTO" else "",
             keyword=keyword,
             product=chosen_product,

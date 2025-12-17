@@ -173,11 +173,24 @@ def build_write_graph(
         if gen_type != "AUTO":
             state["link"] = ""
             return state
-        upload_req = state["upload_request_builder"](
-            state, state["title"], state["body"], state["keyword"]
-        )
-        upload_res = await services.upload.upload(upload_req)
-        state["link"] = upload_res.link
+        try:
+            upload_req = state["upload_request_builder"](
+                state, state["title"], state["body"], state["keyword"]
+            )
+            upload_res = await services.upload.upload(upload_req)
+            state["link"] = upload_res.link
+        except Exception as exc:
+            await log(
+                "ERROR",
+                "업로드 실패",
+                sub=str(exc),
+                job_id=state.get("job_id", ""),
+                user_id=_extract_user_id_from_state(state),
+                keyword=state.get("keyword"),
+            )
+            # 업로드 실패 시 MANUAL 흐름으로 전환하여 글 저장만 진행
+            state["generation_type"] = "MANUAL"
+            state["link"] = ""
         return state
 
     @traceable(run_type="chain")
