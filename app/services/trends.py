@@ -147,20 +147,21 @@ class GoogleTrendsService:
         headless: bool = True,
         excluded_texts: Optional[Set[str]] = None,
         page_timeout_ms: int = 60_000,
+        job_id: str | None = None,
     ) -> Sequence[str]:
         """
         구글 트렌드 키워드를 문자열 리스트로 반환한다.
         """
         excluded = excluded_texts or EXCLUDED_TEXTS
         try:
-            await _log_async("INFO", "구글 트렌드 크롤링 시작", f"limit={limit}")
+            await _log_async("INFO", "구글 트렌드 크롤링 시작", f"limit={limit}", job_id=job_id)
             async with _trend_page(headless=headless, page_timeout_ms=page_timeout_ms) as page:
                 return await _extract_keywords(page, limit, excluded)
         except Exception as exc:  # pragma: no cover - 네트워크/Playwright 예외
-            await _log_async("ERROR", "구글 트렌드 크롤링 실패", str(exc))
+            await _log_async("ERROR", "구글 트렌드 크롤링 실패", str(exc), job_id=job_id)
             return []
         finally:
-            await _log_async("INFO", "구글 트렌드 크롤링 종료", f"limit={limit}")
+            await _log_async("INFO", "구글 트렌드 크롤링 종료", f"limit={limit}", job_id=job_id)
 
     async def fetch_google_crawler_response(
         self,
@@ -169,6 +170,7 @@ class GoogleTrendsService:
         headless: bool = True,
         excluded_texts: Optional[Set[str]] = None,
         page_timeout_ms: int = 60_000,
+        job_id: str | None = None,
     ) -> list[GoogleTrendItem]:
         """
         API 규격에 맞는 리스트를 반환한다.
@@ -178,8 +180,9 @@ class GoogleTrendsService:
             headless=headless,
             excluded_texts=excluded_texts,
             page_timeout_ms=page_timeout_ms,
+            job_id=job_id,
         )
-        await _log_async("INFO", "구글 트렌드 응답 빌드 완료", f"count={len(keywords)}")
+        await _log_async("INFO", "구글 트렌드 응답 빌드 완료", f"count={len(keywords)}", job_id=job_id)
         return [
             GoogleTrendItem(
                 categoryId=1,
@@ -216,15 +219,27 @@ class GoogleTrendsService:
             seen.add(keyword)
             keywords.append(keyword)
         return keywords
-async def _log_async(level: str, message: str, sub: str = "") -> None:
+async def _log_async(level: str, message: str, sub: str = "", job_id: str | None = None) -> None:
     try:
-        await async_send_log(message=message, level=level, submessage=sub, logged_process="trends")
+        await async_send_log(
+            message=message,
+            level=level,
+            submessage=sub,
+            logged_process="trends",
+            job_id=job_id or "",
+        )
     except Exception:
         return
 
 
-def _log_sync(level: str, message: str, sub: str = "") -> None:
+def _log_sync(level: str, message: str, sub: str = "", job_id: str | None = None) -> None:
     try:
-        send_log(message=message, level=level, submessage=sub, logged_process="trends")
+        send_log(
+            message=message,
+            level=level,
+            submessage=sub,
+            logged_process="trends",
+            job_id=job_id or "",
+        )
     except Exception:
         return

@@ -96,7 +96,9 @@ class WriteService:
         upload_channel = _first_channel(req.uploadChannels)
         # 1. 키워드 준비 (입력 키워드도 LLM refine 후 사용)
         if keyword:
-            refined = await self.keywords.refine([keyword], llm_setting=req.llmChannel)
+            refined = await self.keywords.refine(
+                [keyword], llm_setting=req.llmChannel, job_id=job_id
+            )
             keyword = refined.get("real_keyword") or refined.get("keyword") or keyword
             await _log(
                 "INFO",
@@ -107,10 +109,14 @@ class WriteService:
                 keyword=keyword,
             )
         else:
-            keywords = await self.trends.fetch_keywords(limit=20, headless=True)
+            keywords = await self.trends.fetch_keywords(
+                limit=20, headless=True, job_id=job_id
+            )
             if not keywords:
                 raise RuntimeError("트렌드 키워드 수집 실패")
-            refined = await self.keywords.refine(keywords, llm_setting=req.llmChannel)
+            refined = await self.keywords.refine(
+                keywords, llm_setting=req.llmChannel, job_id=job_id
+            )
             keyword = (
                 refined.get("real_keyword") or refined.get("keyword") or keywords[0]
             )
@@ -129,13 +135,13 @@ class WriteService:
         while attempts < MAX_RETRIES:
             attempts += 1
             products = await self.ssadagu.search(
-                keyword, max_products=20, headless=True
+                keyword, max_products=20, headless=True, job_id=job_id
             )
             if not products:
                 raise RuntimeError("싸다구 상품을 찾지 못했습니다.")
             product = random.choice(list(products))
             rel = await self.relevance.evaluate(
-                keyword, product, llm_setting=req.llmChannel
+                keyword, product, llm_setting=req.llmChannel, job_id=job_id
             )
             score = float(rel.get("score", 0.0))
             await _log(
@@ -162,7 +168,7 @@ class WriteService:
         # 5. 홍보글 작성
         platform = _resolve_platform(upload_channel)
         promo = await self.promo.generate(
-            chosen_product, platform=platform, llm_setting=req.llmChannel
+            chosen_product, platform=platform, llm_setting=req.llmChannel, job_id=job_id
         )
         title = promo.get("title", "").strip()
         body = promo.get("body", "").strip()

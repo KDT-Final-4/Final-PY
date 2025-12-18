@@ -94,6 +94,7 @@ class SsadaguService:
         max_products: int = 20,
         headless: bool = True,
         page_timeout_ms: int = 30_000,
+        job_id: str | None = None,
     ) -> Sequence[SsadaguProduct]:
         """검색 키워드로 싸다구 상품을 크롤링한다."""
         search_url = _build_search_url(keyword)
@@ -103,7 +104,7 @@ class SsadaguService:
             browser: Browser = await p.chromium.launch(headless=headless)
             page = await browser.new_page()
             try:
-                await _log_async("INFO", f"싸다구 검색 시작: {keyword}")
+                await _log_async("INFO", f"싸다구 검색 시작: {keyword}", job_id=job_id)
                 try:
                     await page.goto(search_url, wait_until="networkidle", timeout=page_timeout_ms)
                 except Exception:
@@ -153,7 +154,7 @@ class SsadaguService:
                             price = await _extract_price_from_detail(detail_page)
                             detail_specs = await _extract_detail_specs(detail_page)
                         except Exception as exc:  # pragma: no cover - 네트워크 환경 의존
-                            await _log_async("WARN", f"상세 정보 추출 실패 {link} | {exc}")
+                            await _log_async("WARN", f"상세 정보 추출 실패 {link} | {exc}", job_id=job_id)
                         finally:
                             if detail_page:
                                 try:
@@ -171,17 +172,22 @@ class SsadaguService:
                             )
                         )
                     except Exception as exc:  # pragma: no cover - 네트워크 환경 의존
-                        await _log_async("WARN", f"상품 파싱 실패: {exc}")
+                        await _log_async("WARN", f"상품 파싱 실패: {exc}", job_id=job_id)
                         continue
             finally:
                 await browser.close()
 
-        await _log_async("INFO", f"싸다구 검색 완료: {keyword}, count={len(products)}")
+        await _log_async("INFO", f"싸다구 검색 완료: {keyword}, count={len(products)}", job_id=job_id)
         return products
 
 
-async def _log_async(level: str, message: str) -> None:
+async def _log_async(level: str, message: str, job_id: str | None = None) -> None:
     try:
-        await async_send_log(message=message, level=level, logged_process="ssadagu")
+        await async_send_log(
+            message=message,
+            level=level,
+            logged_process="ssadagu",
+            job_id=job_id or "",
+        )
     except Exception:
         return

@@ -46,6 +46,7 @@ class XPostService:
         consumer_secret: Optional[str] = None,
         access_token: Optional[str] = None,
         access_token_secret: Optional[str] = None,
+        job_id: str | None = None,
     ) -> str:
         """트윗을 게시하고 URL을 반환한다 (v2 create_tweet)."""
         status = _build_status(title, content)
@@ -73,6 +74,7 @@ class XPostService:
                         message="X 업로드 시작",
                         submessage=f"title_preview={status[:40]}",
                         logged_process="x_post",
+                        job_id=job_id or "",
                     )
                 )
         except Exception:
@@ -99,6 +101,7 @@ class XPostService:
                         message="X 업로드 완료",
                         submessage=f"url={url}",
                         logged_process="x_post",
+                        job_id=job_id or "",
                     )
                 )
         except Exception:

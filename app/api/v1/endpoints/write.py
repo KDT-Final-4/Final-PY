@@ -45,5 +45,11 @@ async def write_content(
     service: WriteService = Depends(get_write_service),
 ) -> Response:
     """키워드 선정 → 상품 크롤링 → 홍보글 생성 → (선택적) 업로드를 수행한다. 즉시 OK 반환."""
+    await async_send_log(
+        message="write 요청 수락",
+        logged_process="write",
+        job_id=body.jobId,
+        submessage=f"generationType={body.llmChannel.generationType if body.llmChannel else ''}",
+    )
     asyncio.create_task(_run_write(service, body))
     return Response(status_code=status.HTTP_200_OK)

@@ -34,7 +34,7 @@ class UploadService:
         if channel.startswith("naver"):
             link = await self._upload_naver(payload)
         elif channel in {"x", "twitter"}:
-            link = await self._upload_x(payload)
+            link = await self._upload_x(payload, job_id=job_id)
         else:
             await async_send_log(
                 message="지원하지 않는 채널",
@@ -73,12 +73,13 @@ class UploadService:
             title=payload.title,
             content=payload.body,
             blog_id=blog_id,
+            job_id=payload.jobId,
         )
         if not result.success or not result.url:
             raise RuntimeError(f"네이버 업로드 실패: {result.message}")
         return result.url
 
-    async def _upload_x(self, payload: UploadRequest) -> str:
+    async def _upload_x(self, payload: UploadRequest, *, job_id: str | None = None) -> str:
         return await self.x_service.post_async(
             title=payload.title,
             content=payload.body,
@@ -86,4 +87,5 @@ class UploadService:
             consumer_secret=payload.x_consumer_secret,
             access_token=payload.x_access_token,
             access_token_secret=payload.x_access_token_secret,
+            job_id=job_id,
         )

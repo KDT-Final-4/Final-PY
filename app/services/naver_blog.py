@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 from dataclasses import dataclass
+import contextvars
 from typing import Optional
 from urllib.parse import urlparse
 
@@ -15,16 +16,34 @@ from app.logs import async_send_log
 
 DEFAULT_SESSION_FILE = "/tmp/naver_blog_session.json"
 LOGIN_URL = "https://nid.naver.com/nidlogin.login"
+JOB_ID_CTX: contextvars.ContextVar[str] = contextvars.ContextVar("naver_blog_job_id", default="")
 
 
-def _log(message: str, *, level: str = "INFO", submessage: str = "") -> None:
+def _log(message: str, *, level: str = "INFO", submessage: str = "", job_id: str | None = None) -> None:
     try:
+        job = job_id if job_id is not None else JOB_ID_CTX.get("")
         # fire-and-forget async; if not awaited, it runs in loop via create_task
         loop = asyncio.get_event_loop()
         if loop.is_running():
-            loop.create_task(async_send_log(message=message, level=level, submessage=submessage, logged_process="naver_blog"))
+            loop.create_task(
+                async_send_log(
+                    message=message,
+                    level=level,
+                    submessage=submessage,
+                    logged_process="naver_blog",
+                    job_id=job,
+                )
+            )
         else:
-            asyncio.run(async_send_log(message=message, level=level, submessage=submessage, logged_process="naver_blog"))
+            asyncio.run(
+                async_send_log(
+                    message=message,
+                    level=level,
+                    submessage=submessage,
+                    logged_process="naver_blog",
+                    job_id=job,
+                )
+            )
     except Exception:
         return
 
@@ -285,9 +304,11 @@ class NaverBlogService:
         blog_id: Optional[str] = None,
         session_file: str = DEFAULT_SESSION_FILE,
         headless: bool = False,
+        job_id: Optional[str] = None,
     ) -> NaverBlogPublishResult:
         blog_target = blog_id or login_id
         _ensure_session_path(session_file)
+        token = JOB_ID_CTX.set(job_id or "")
 
         async with async_playwright() as p:
             browser = await p.chromium.launch(headless=headless)
@@ -335,4 +356,5 @@ class NaverBlogService:
                 _log("오류 발생", level="ERROR", submessage=str(exc))
                 return NaverBlogPublishResult(False, f"오류 발생: {exc}")
             finally:
+                JOB_ID_CTX.reset(token)
                 await browser.close()

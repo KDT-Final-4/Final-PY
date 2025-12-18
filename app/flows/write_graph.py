@@ -84,12 +84,14 @@ def build_write_graph(
             )
             trends: list[str] = [keyword]
         else:
-            trends = await services.trends.fetch_keywords(limit=20, headless=True)
+            trends = await services.trends.fetch_keywords(
+                limit=20, headless=True, job_id=job_id
+            )
             if not trends:
                 raise RuntimeError("트렌드 키워드 수집 실패")
 
         refined = await services.keywords.refine(
-            trends, llm_setting=state["llm_setting"]
+            trends, llm_setting=state["llm_setting"], job_id=job_id
         )
         keyword_out = refined.get("real_keyword") or refined.get("keyword") or trends[0]
         await log(
@@ -107,7 +109,7 @@ def build_write_graph(
     async def fetch_products(state: Dict[str, Any]) -> Dict[str, Any]:
         keyword = state["keyword"]
         products = await services.ssadagu.search(
-            keyword, max_products=20, headless=True
+            keyword, max_products=20, headless=True, job_id=state.get("job_id")
         )
         if not products:
             raise RuntimeError("싸다구 상품을 찾지 못했습니다.")
@@ -127,7 +129,7 @@ def build_write_graph(
         keyword = state["keyword"]
         product: SsadaguProduct = state["product"]
         rel = await services.relevance.evaluate(
-            keyword, product, llm_setting=state["llm_setting"]
+            keyword, product, llm_setting=state["llm_setting"], job_id=job_id
         )
         score = float(rel.get("score", 0.0))
         await log(
@@ -159,7 +161,10 @@ def build_write_graph(
             state["upload_channel"].name
         )
         promo = await services.promo.generate(
-            product, platform=platform, llm_setting=state["llm_setting"]
+            product,
+            platform=platform,
+            llm_setting=state["llm_setting"],
+            job_id=state.get("job_id"),
         )
         title = promo.get("title", "").strip()
         body = promo.get("body", "").strip()

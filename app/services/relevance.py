@@ -46,6 +46,7 @@ class RelevanceService:
         product: SsadaguProduct,
         *,
         llm_setting: LlmSetting | None = None,
+        job_id: str | None = None,
     ) -> dict[str, str | float]:
         extra_prompt = llm_setting.prompt if llm_setting else None
         system_prompt = get_system_prompt()
@@ -55,6 +56,7 @@ class RelevanceService:
             message="키워드-상품 연관도 평가 시작",
             submessage=f"keyword={keyword}",
             logged_process="relevance",
+            job_id=job_id or "",
         )
         answer = await self.llm.chat(
             system_prompt=system_prompt,
@@ -85,6 +87,7 @@ class RelevanceService:
             message="키워드-상품 연관도 평가 완료",
             submessage=f"keyword={keyword} | score={score} | reason={reason}",
             logged_process="relevance",
+            job_id=job_id or "",
         )
         return {
             "keyword": keyword,

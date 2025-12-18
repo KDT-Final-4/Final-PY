@@ -54,6 +54,7 @@ class PromoService:
         *,
         platform: str = "naver_blog",
         llm_setting: LlmSetting | None = None,
+        job_id: str | None = None,
     ) -> dict[str, str]:
         """플랫폼에 맞는 홍보글 JSON(title, body)을 생성."""
         extra_prompt = llm_setting.prompt if llm_setting else None
@@ -64,6 +65,7 @@ class PromoService:
             message="프로모션 생성 시작",
             submessage=f"platform={platform}, product={product.title}",
             logged_process="promo",
+            job_id=job_id or "",
         )
         answer = await self.llm.chat(
             system_prompt=system_prompt,
@@ -86,6 +88,7 @@ class PromoService:
             message="프로모션 생성 완료",
             submessage=f"platform={platform}, title={title}",
             logged_process="promo",
+            job_id=job_id or "",
         )
         return {
             "title": title.strip(),

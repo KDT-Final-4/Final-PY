@@ -31,6 +31,7 @@ class KeywordService:
         trends: list[str],
         *,
         llm_setting: LlmSetting | None = None,
+        job_id: str | None = None,
     ) -> dict[str, str]:
         extra_prompt = llm_setting.prompt if llm_setting else None
         system_prompt = get_system_prompt()
@@ -40,6 +41,7 @@ class KeywordService:
             message="트렌드 키워드 → 검색어 변환 시작",
             submessage=f"count={len(trends)}",
             logged_process="keywords",
+            job_id=job_id or "",
         )
         answer = await self.llm.chat(
             system_prompt=system_prompt,
@@ -65,6 +67,7 @@ class KeywordService:
             message="트렌드 키워드 → 검색어 변환 완료",
             submessage=f"keyword={keyword_out}, real={real_keyword}",
             logged_process="keywords",
+            job_id=job_id or "",
         )
         return {
             "keyword": keyword_out,
