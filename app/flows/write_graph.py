@@ -51,6 +51,7 @@ def build_write_graph(
         job_id: str = "",
         user_id: int = 1,
         keyword: str | None = None,
+        is_notifiable: bool = False,
     ):
         submessage = _sub_with_keyword(keyword, sub)
         try:
@@ -61,6 +62,7 @@ def build_write_graph(
                 logged_process="write",
                 job_id=job_id,
                 user_id=user_id,
+                is_notifiable=is_notifiable,
             )
         except Exception:
             return
@@ -210,6 +212,15 @@ def build_write_graph(
             ),
             keyword=state["keyword"],
             product=product,
+        )
+        await log(
+            "INFO",
+            "write 프로세스 완료",
+            sub=state.get("keyword", ""),
+            job_id=state.get("job_id", ""),
+            user_id=_extract_user_id_from_state(state),
+            keyword=state.get("keyword"),
+            is_notifiable=True,
         )
         return state
 

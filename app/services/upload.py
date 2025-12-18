@@ -50,6 +50,7 @@ class UploadService:
             logged_process="upload",
             submessage=f"channel={channel}",
             job_id=job_id,
+            is_notifiable=True,
         )
 
         return UploadResponse(jobId=job_id, link=link, channel=channel)

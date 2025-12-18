@@ -13,7 +13,8 @@ Environment variables (loaded from .env via app.config):
   "loggedDate": "2025-12-12T05:10:56.490Z",
   "message": "string",
   "submessage": "string",
-  "jobId": "string"
+  "jobId": "string",
+  "isNotifiable": false
 }
 """
 
@@ -44,6 +45,7 @@ def send_log(
     timeout: Optional[float] = None,
     client: Optional[httpx.Client] = None,
     raise_on_error: bool = False,
+    is_notifiable: Optional[bool] = None,
 ) -> httpx.Response:
     """외부 로그 수집기로 전송하고 콘솔에도 출력한다.
 
@@ -60,6 +62,7 @@ def send_log(
         timeout: 요청 타임아웃(초). 없으면 LOG_TIMEOUT 또는 5.0초.
         client: 재사용할 httpx.Client. 없으면 내부에서 생성 후 닫는다.
         raise_on_error: True면 전송 실패 시 예외를 올린다. 기본 False면 콘솔에만 남김.
+        is_notifiable: 알림 대상 여부. 지정되지 않으면 level이 ERROR일 때만 True, 나머지는 False.
     """
 
     log_level = level.upper()
@@ -67,6 +70,7 @@ def send_log(
         log_level = "INFO"
 
     meta = meta or {}
+    notify_flag = is_notifiable if is_notifiable is not None else (log_level == "ERROR")
     now_str = _now_str()
     payload = {
         "userId": user_id,
@@ -76,6 +80,7 @@ def send_log(
         "message": message,
         "submessage": submessage,
         "jobId": job_id,
+        "isNotifiable": notify_flag,
         # 호환성 필드 (기존 테스트/사용처 대응)
         "level": log_level,
         "meta": meta,
@@ -134,6 +139,7 @@ async def async_send_log(
     timeout: Optional[float] = None,
     client: Optional[httpx.AsyncClient] = None,
     raise_on_error: bool = False,
+    is_notifiable: Optional[bool] = None,
 ) -> Optional[httpx.Response]:
     """비동기 버전의 send_log."""
     log_level = level.upper()
@@ -141,6 +147,7 @@ async def async_send_log(
         log_level = "INFO"
 
     meta = meta or {}
+    notify_flag = is_notifiable if is_notifiable is not None else (log_level == "ERROR")
     now_str = _now_str()
     payload = {
         "userId": user_id,
@@ -150,6 +157,7 @@ async def async_send_log(
         "message": message,
         "submessage": submessage,
         "jobId": job_id,
+        "isNotifiable": notify_flag,
         "level": log_level,
         "meta": meta,
         "source": source or config.get_log_source(),

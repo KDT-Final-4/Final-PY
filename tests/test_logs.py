@@ -34,6 +34,7 @@ def test_send_log_posts_payload_and_prints(capsys, monkeypatch):
     assert sent_payload["level"] == "WARN"
     assert sent_payload["meta"] == {"foo": "bar"}
     assert sent_payload["source"] == "test-suite"
+    assert sent_payload["isNotifiable"] is False
     assert "timestamp" in sent_payload
 
     captured = capsys.readouterr().out

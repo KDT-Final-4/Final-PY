@@ -216,6 +216,7 @@ class WriteService:
             job_id=job_id,
             user_id=user_id,
             keyword=keyword,
+            is_notifiable=True,
         )
         return WriteResponse(
             jobId=job_id,
@@ -362,6 +363,7 @@ async def _log(
     job_id: str = "",
     user_id: int = 1,
     keyword: str | None = None,
+    is_notifiable: bool | None = None,
 ) -> None:
     submessage = _with_keyword(keyword, sub)
     try:
@@ -372,6 +374,7 @@ async def _log(
             logged_process="write",
             job_id=job_id,
             user_id=user_id,
+            is_notifiable=is_notifiable,
         )
     except Exception:
         return
