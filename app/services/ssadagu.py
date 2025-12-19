@@ -8,7 +8,11 @@ from collections.abc import Sequence
 from typing import Optional
 from urllib.parse import quote
 
-from playwright.async_api import Browser, Page, async_playwright
+try:
+    from playwright.async_api import Browser, Page, async_playwright
+except ImportError:  # pragma: no cover - optional dependency for tests
+    Browser = Page = None  # type: ignore
+    async_playwright = None  # type: ignore
 
 from app.logs import async_send_log
 from app.schemas.products import SsadaguProduct
@@ -97,6 +101,8 @@ class SsadaguService:
         job_id: str | None = None,
     ) -> Sequence[SsadaguProduct]:
         """검색 키워드로 싸다구 상품을 크롤링한다."""
+        if async_playwright is None:
+            raise ImportError("playwright 패키지가 필요합니다.")
         search_url = _build_search_url(keyword)
         products: list[SsadaguProduct] = []
 

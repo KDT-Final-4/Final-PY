@@ -7,7 +7,13 @@ from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
 import httpx
-from langsmith import traceable
+try:
+    from langsmith import traceable
+except ImportError:  # pragma: no cover - optional
+    def traceable(*args, **kwargs):  # type: ignore
+        def decorator(fn):
+            return fn
+        return decorator
 
 from app import config
 from app.logs import async_send_log
@@ -168,10 +174,12 @@ def build_write_graph(
         )
         title = promo.get("title", "").strip()
         body = promo.get("body", "").strip()
+        category = await services.classify_category(product, state["llm_setting"])
         redirect_url = _build_redirect_url(state["job_id"])
         body = body.replace(str(product.product_link), redirect_url)
         state["title"] = title
         state["body"] = body
+        state["category"] = category
         return state
 
     @traceable(run_type="chain")
@@ -217,6 +225,7 @@ def build_write_graph(
             ),
             keyword=state["keyword"],
             product=product,
+            category=state.get("category", "0"),
         )
         await log(
             "INFO",
@@ -297,6 +306,7 @@ async def _post_content(
     link: str,
     keyword: str,
     product: SsadaguProduct,
+    category: str,
 ) -> None:
     gen_type_upper = (generation_type or "").upper()
     status = "APPROVED" if gen_type_upper == "AUTO" else "PENDING"
@@ -315,7 +325,7 @@ async def _post_content(
             "link": str(product.product_link),
             "thumbnail": str(product.thumbnail_link or ""),
             "price": product.price or 0,
-            "category": "0",
+            "category": category,
         },
     }
     base = config.get_log_endpoint()

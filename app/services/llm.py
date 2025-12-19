@@ -4,8 +4,13 @@ from __future__ import annotations
 
 from typing import Optional
 
-from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
+try:
+    from langchain_core.messages import HumanMessage, SystemMessage
+    from langchain_openai import ChatOpenAI
+except ImportError:  # pragma: no cover - optional dependency for tests
+    HumanMessage = None  # type: ignore
+    SystemMessage = None  # type: ignore
+    ChatOpenAI = None  # type: ignore
 
 from app.config import get_openai_api_key
 
@@ -17,7 +22,11 @@ class LLMService:
         self.model = model or "gpt-4o-mini"
         self.temperature = temperature if temperature is not None else 0.5
         self.api_key = api_key or get_openai_api_key()
-        self.client = ChatOpenAI(model=self.model, temperature=self.temperature, api_key=self.api_key)
+        self.client = (
+            ChatOpenAI(model=self.model, temperature=self.temperature, api_key=self.api_key)
+            if ChatOpenAI is not None
+            else None
+        )
 
     async def chat(
         self,
@@ -29,6 +38,8 @@ class LLMService:
         api_key: Optional[str] = None,
     ) -> str:
         """LLM 호출."""
+        if ChatOpenAI is None or HumanMessage is None or SystemMessage is None or self.client is None:
+            raise ImportError("langchain and langchain_openai 패키지가 필요합니다.")
         client = self.client
         if model or temperature is not None or api_key is not None:
             client = ChatOpenAI(

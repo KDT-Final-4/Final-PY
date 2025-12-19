@@ -9,7 +9,10 @@ import contextvars
 from typing import Optional
 from urllib.parse import urlparse
 
-from playwright.async_api import async_playwright
+try:
+    from playwright.async_api import async_playwright
+except ImportError:  # pragma: no cover - optional dependency for tests
+    async_playwright = None  # type: ignore
 
 from app.logs import async_send_log
 
@@ -306,6 +309,8 @@ class NaverBlogService:
         headless: bool = False,
         job_id: Optional[str] = None,
     ) -> NaverBlogPublishResult:
+        if async_playwright is None:
+            raise ImportError("playwright 패키지가 필요합니다.")
         blog_target = blog_id or login_id
         _ensure_session_path(session_file)
         token = JOB_ID_CTX.set(job_id or "")

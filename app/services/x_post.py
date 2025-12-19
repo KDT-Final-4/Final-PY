@@ -6,7 +6,10 @@ import asyncio
 import re
 from typing import Optional
 
-import tweepy
+try:
+    import tweepy
+except ImportError:  # pragma: no cover - optional for tests
+    tweepy = None  # type: ignore
 
 from app import config
 from app.logs import async_send_log
@@ -49,6 +52,8 @@ class XPostService:
         job_id: str | None = None,
     ) -> str:
         """트윗을 게시하고 URL을 반환한다 (v2 create_tweet)."""
+        if tweepy is None:
+            raise ImportError("tweepy 패키지가 필요합니다.")
         status = _build_status(title, content)
 
         ck = consumer_key or self.consumer_key or config.get_x_consumer_key()
