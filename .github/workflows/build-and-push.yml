@@ -1,0 +1,135 @@
+name: Build and Push to ECR
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+      - '.editorconfig'
+      - '.gitattributes'
+      - 'README.md'
+
+env:
+  AWS_REGION: ap-northeast-2
+  ECR_REPOSITORY_NAME: final-py
+
+jobs:
+  build-and-push:
+    name: Build Docker Image and Push to ECR
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Get AWS Account ID
+        id: get-account-id
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          echo "account_id=$ACCOUNT_ID" >> $GITHUB_OUTPUT
+          echo "AWS Account ID: $ACCOUNT_ID"
+
+      - name: Check if ECR repository exists
+        id: check-ecr
+        run: |
+          if aws ecr describe-repositories --repository-names ${{ env.ECR_REPOSITORY_NAME }} --region ${{ env.AWS_REGION }} > /dev/null 2>&1; then
+            echo "repository_exists=true" >> $GITHUB_OUTPUT
+            echo "ECR repository exists"
+          else
+            echo "repository_exists=false" >> $GITHUB_OUTPUT
+            echo "ECR repository does not exist, will create it"
+          fi
+
+      - name: Create ECR repository if not exists
+        if: steps.check-ecr.outputs.repository_exists == 'false'
+        run: |
+          echo "Creating ECR repository: ${{ env.ECR_REPOSITORY_NAME }}"
+          aws ecr create-repository \
+            --repository-name ${{ env.ECR_REPOSITORY_NAME }} \
+            --region ${{ env.AWS_REGION }} \
+            --image-scanning-configuration scanOnPush=true \
+            --encryption-configuration encryptionType=AES256
+
+      - name: Build Docker image
+        id: build-image
+        env:
+          IMAGE_TAG: latest
+        run: |
+          echo "=========================================="
+          echo "Building Docker image..."
+          echo "Repository: ${{ env.ECR_REPOSITORY_NAME }}"
+          echo "Tag: ${IMAGE_TAG}"
+          echo "=========================================="
+          docker build -t ${{ env.ECR_REPOSITORY_NAME }}:${IMAGE_TAG} .
+          if [ $? -ne 0 ]; then
+            echo "Error: Docker build failed"
+            exit 1
+          fi
+          echo "✅ Docker image built successfully"
+
+      - name: Tag Docker image for ECR
+        id: tag-image
+        env:
+          IMAGE_TAG: latest
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          ECR_REPOSITORY_URI=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_NAME }}
+          echo "Tagging image..."
+          # 로컬 이미지를 ECR URI로 태깅 (latest와 commit SHA 두 개)
+          docker tag ${{ env.ECR_REPOSITORY_NAME }}:${IMAGE_TAG} $ECR_REPOSITORY_URI:${IMAGE_TAG}
+          docker tag ${{ env.ECR_REPOSITORY_NAME }}:${IMAGE_TAG} $ECR_REPOSITORY_URI:${COMMIT_SHA}
+          echo "image_uri=$ECR_REPOSITORY_URI" >> $GITHUB_OUTPUT
+          echo "✅ Images tagged: $ECR_REPOSITORY_URI:${IMAGE_TAG} and $ECR_REPOSITORY_URI:${COMMIT_SHA}"
+
+      - name: Push Docker image to ECR
+        env:
+          IMAGE_TAG: latest
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          ECR_REPOSITORY_URI=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_NAME }}
+          echo "Pushing images to ECR..."
+          docker push $ECR_REPOSITORY_URI:${IMAGE_TAG}
+          if [ $? -ne 0 ]; then
+            echo "Error: Docker push failed"
+            exit 1
+          fi
+          docker push $ECR_REPOSITORY_URI:${COMMIT_SHA}
+          if [ $? -ne 0 ]; then
+            echo "Error: Docker push failed"
+            exit 1
+          fi
+          echo "=========================================="
+          echo "✅ Images pushed successfully!"
+          echo "Image URI: $ECR_REPOSITORY_URI:${IMAGE_TAG}"
+          echo "Commit SHA: ${COMMIT_SHA}"
+          echo "=========================================="
+
+      - name: Summary
+        env:
+          IMAGE_TAG: latest
+        run: |
+          ECR_REPOSITORY_URI=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY_NAME }}
+          echo "## ✅ Build and Push Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Repository**: $ECR_REPOSITORY_URI" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image Tag**: ${IMAGE_TAG}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit SHA**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Region**: ${{ env.AWS_REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Image URIs" >> $GITHUB_STEP_SUMMARY
+          echo "- \`$ECR_REPOSITORY_URI:${IMAGE_TAG}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`$ECR_REPOSITORY_URI:${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+
