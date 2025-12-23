@@ -1,31 +1,31 @@
-| 카테고리                        | 카테고리 설명 |
-| --------------------------- | ------- |
-| DIGITAL                     | 전자제품    |
-| FASHION                     | 패션      |
-| INNERWEAR_AND_PAJAMAS       | 속옷      |
-| SHOES                       | 신발      |
-| BAGS                        | 가방      |
-| FASHION_ACCESSORIES         | 액세서리    |
-| JEWELRY_AND_ACCESSORIES     | 주얼리     |
-| SPORTS_GEAR                 | 스포츠용품   |
-| LEISURE_GEAR                | 레저용품    |
-| CAMPING_GEAR                | 캠핑용품    |
-| BEDDING                     | 침구      |
-| FURNITURE                   | 가구      |
-| DECOR                       | 장식품     |
-| CAT_SUPPLIES                | 고양이용품   |
-| DOG_SUPPLIES                | 강아지용품   |
-| CLEANING_SUPPLIES           | 청소용품    |
-| HOME_ESSENTIALS             | 생활용품    |
-| CAR_INTERIOR_AND_CARE       | 차량용품    |
-| CAR_WASH_AND_DETAILING      | 세차용품    |
-| MOTORCYCLE_GEAR             | 라이딩장비   |
-| OFFICE_SUPPLIES             | 사무용품    |
-| COOKWARE_AND_UTENSILS       | 조리도구    |
-| KITCHEN_ACCESSORIES         | 주방잡화    |
-| HOME_APPLIANCES             | 생활가전    |
-| KITCHEN_APPLIANCES          | 주방가전    |
-| BEAUTY_AND_GROOMING_DEVICES | 뷰티기기    |
-| BABY_PRODUCTS               | 유아용품    |
-| TOYS_AND_HOBBIES            | 장난감     |
-| ETC                         | 기타      |
+| 카테고리 ID | 카테고리                        | 카테고리 설명 |
+| ------- | --------------------------- | ------- |
+| 1       | DIGITAL                     | 전자제품    |
+| 2       | FASHION                     | 패션      |
+| 3       | INNERWEAR_AND_PAJAMAS       | 속옷      |
+| 4       | SHOES                       | 신발      |
+| 5       | BAGS                        | 가방      |
+| 6       | FASHION_ACCESSORIES         | 액세서리    |
+| 7       | JEWELRY_AND_ACCESSORIES     | 주얼리     |
+| 8       | SPORTS_GEAR                 | 스포츠용품   |
+| 9       | LEISURE_GEAR                | 레저용품    |
+| 10      | CAMPING_GEAR                | 캠핑용품    |
+| 11      | BEDDING                     | 침구      |
+| 12      | FURNITURE                   | 가구      |
+| 13      | DECOR                       | 장식품     |
+| 14      | CAT_SUPPLIES                | 고양이용품   |
+| 15      | DOG_SUPPLIES                | 강아지용품   |
+| 16      | CLEANING_SUPPLIES           | 청소용품    |
+| 17      | HOME_ESSENTIALS             | 생활용품    |
+| 18      | CAR_INTERIOR_AND_CARE       | 차량용품    |
+| 19      | CAR_WASH_AND_DETAILING      | 세차용품    |
+| 20      | MOTORCYCLE_GEAR             | 라이딩장비   |
+| 21      | OFFICE_SUPPLIES             | 사무용품    |
+| 22      | COOKWARE_AND_UTENSILS       | 조리도구    |
+| 23      | KITCHEN_ACCESSORIES         | 주방잡화    |
+| 24      | HOME_APPLIANCES             | 생활가전    |
+| 25      | KITCHEN_APPLIANCES          | 주방가전    |
+| 26      | BEAUTY_AND_GROOMING_DEVICES | 뷰티기기    |
+| 27      | BABY_PRODUCTS               | 유아용품    |
+| 28      | TOYS_AND_HOBBIES            | 장난감     |
+| 29      | ETC                         | 기타      |

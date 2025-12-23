@@ -56,6 +56,7 @@ class RelevanceService:
             message="키워드-상품 연관도 평가 시작",
             submessage=f"keyword={keyword}",
             logged_process="relevance",
+            level="WARN",
             job_id=job_id or "",
         )
         answer = await self.llm.chat(
@@ -87,6 +88,7 @@ class RelevanceService:
             message="키워드-상품 연관도 평가 완료",
             submessage=f"keyword={keyword} | score={score} | reason={reason}",
             logged_process="relevance",
+            level="WARN",
             job_id=job_id or "",
         )
         return {

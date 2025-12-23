@@ -62,7 +62,7 @@ class UploadService:
         print(payload.client_id)
         login_id = payload.client_id or config.get_naver_login_id()
         login_pw = payload.client_pw or config.get_naver_login_pw()
-        blog_id = payload.naver_blog_id or config.get_naver_blog_id() or login_id
+        blog_id = payload.naver_blog_id or payload.client_id or config.get_naver_blog_id() or login_id
 
         if not login_id or not login_pw:
             raise ValueError("네이버 로그인 정보가 없습니다.")
